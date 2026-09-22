@@ -1,10 +1,9 @@
 name: Desktop Builds
 
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,9 +15,9 @@ jobs:
       matrix:
         include:
           - platform: windows-latest
-            os_name: Windows
+            artifact: UEK-Notizen-Windows-x64
           - platform: macos-latest
-            os_name: macOS
+            artifact: UEK-Notizen-macOS
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -29,15 +28,37 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install dependencies
         run: npm ci
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build application
+        run: npm run tauri build
+      - name: Create Windows portable ZIP
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "src-tauri/target/release/uek-notizen.exe" -DestinationPath "UEK-Notizen-Windows-x64.zip"
+      - name: Create macOS app ZIP
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/release/bundle/macos/ÜK Notizen.app" "UEK-Notizen-macOS.zip"
+      - uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "ÜK Notizen ${{ github.ref_name }}"
-          releaseBody: "Portable Windows- und macOS-Version von ÜK Notizen. ZIP herunterladen, entpacken und starten."
-          releaseDraft: false
-          prerelease: false
-          includeUpdaterJson: false
+          name: ${{ matrix.artifact }}
+          path: UEK-Notizen-*.zip
+          if-no-files-found: error
 
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: UEK-Notizen-*
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: ÜK Notizen v1.0.${{ github.run_number }}
+          body: |
+            Portable Versionen von ÜK Notizen.
+
+            Windows: ZIP entpacken und uek-notizen.exe starten.
+            macOS: ZIP entpacken und ÜK Notizen.app öffnen.
+          files: UEK-Notizen-*.zip
+          fail_on_unmatched_files: true
