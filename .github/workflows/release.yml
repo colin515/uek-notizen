@@ -29,17 +29,49 @@ jobs:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+      - name: Add macOS universal targets
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - name: Install dependencies
         run: npm ci
-      - name: Build application
+      - name: Build Windows application
+        if: runner.os == 'Windows'
         run: npm run tauri build
+      - name: Build universal macOS application
+        if: runner.os == 'macOS'
+        run: npm run tauri build -- --target universal-apple-darwin
       - name: Create Windows portable ZIP
         if: runner.os == 'Windows'
         shell: pwsh
         run: Compress-Archive -Path "src-tauri/target/release/uek-notizen.exe" -DestinationPath "UEK-Notizen-Windows-x64.zip"
-      - name: Create macOS app ZIP
+      - name: Create macOS portable package
         if: runner.os == 'macOS'
-        run: ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/release/bundle/macos/ÜK Notizen.app" "UEK-Notizen-macOS.zip"
+        run: |
+          APP_PATH="src-tauri/target/universal-apple-darwin/release/bundle/macos/ÜK Notizen.app"
+          codesign --force --deep --sign - "$APP_PATH"
+          codesign --verify --deep --strict "$APP_PATH"
+          mkdir -p mac-package
+          cp -R "$APP_PATH" mac-package/
+          cat > "mac-package/ÜK Notizen starten.command" <<'SCRIPT'
+          #!/bin/bash
+          DIR="$(cd "$(dirname "$0")" && pwd)"
+          xattr -dr com.apple.quarantine "$DIR/ÜK Notizen.app"
+          open "$DIR/ÜK Notizen.app"
+          SCRIPT
+          chmod +x "mac-package/ÜK Notizen starten.command"
+          cat > mac-package/README-MAC.txt <<'TEXT'
+          ÜK Notizen starten
+
+          Die App ist ad-hoc signiert. Apple verlangt für Downloads aus dem Internet
+          normalerweise eine kostenpflichtige Developer-ID-Signierung und Notarisierung.
+
+          Falls ein Doppelklick auf die App blockiert wird:
+          1. Doppelklicke auf „ÜK Notizen starten.command“.
+          2. Falls macOS auch dies blockiert: Rechtsklick darauf → Öffnen → Öffnen.
+
+          Das Startskript entfernt nur das Quarantäne-Attribut dieser App und öffnet sie.
+          TEXT
+          ditto -c -k --sequesterRsrc --keepParent mac-package "UEK-Notizen-macOS.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -56,8 +88,8 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: ÜK Notizen v1.0.${{ github.run_number }}
+          tag_name: v1.1.${{ github.run_number }}
+          name: ÜK Notizen v1.1.${{ github.run_number }}
           body: |
             Portable Versionen von ÜK Notizen.
 

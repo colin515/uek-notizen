@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { sampleNote } from "./storage";
+import { sampleCourse, sampleNote } from "./storage";
 
 describe("sampleNote", () => {
   it("creates a complete starter note", () => {
-    const note = sampleNote();
+    const course = sampleCourse();
+    const note = sampleNote(course.id);
     expect(note.id).toBeTruthy();
     expect(note.title).toContain("Willkommen");
-    expect(note.course).toBe("Beispiel-ÜK");
+    expect(note.courseId).toBe(course.id);
     expect(note.content).toContain("lokal");
     expect(note.favorite).toBe(true);
   });

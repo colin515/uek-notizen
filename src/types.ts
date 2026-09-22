@@ -7,11 +7,19 @@ export interface Settings {
   onboarded: boolean;
 }
 
+export interface Course {
+  id: string;
+  number: string;
+  title: string;
+  createdAt: string;
+}
+
 export interface Note {
   id: string;
   title: string;
   content: string;
-  course: string;
+  courseId: string;
+  course?: string;
   tags: string[];
   favorite: boolean;
   archived: boolean;
@@ -21,7 +29,8 @@ export interface Note {
 
 export interface AppData {
   settings: Settings;
+  courses: Course[];
   notes: Note[];
+  selectedCourseId: string | null;
   selectedNoteId: string | null;
 }
-

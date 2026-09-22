@@ -12,6 +12,17 @@ export async function askGroq(apiKey: string, action: AiAction, html: string): P
   const text = new DOMParser().parseFromString(html, "text/html").body.textContent?.trim() ?? "";
   if (!text) throw new Error("Die Notiz ist leer.");
 
+  const systemPrompt = "Du bist ein hilfreicher Lernassistent für Schweizer ÜK-Lernende. Antworte präzise und ohne erfundene Fakten.";
+  const userPrompt = `${prompts[action]}\n\n${text}`;
+
+  if ("__TAURI_INTERNALS__" in window) {
+    return invoke<string>("groq_chat", {
+      apiKey: apiKey.trim(),
+      systemPrompt,
+      userPrompt
+    });
+  }
+
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
@@ -19,8 +30,8 @@ export async function askGroq(apiKey: string, action: AiAction, html: string): P
       model: "llama-3.3-70b-versatile",
       temperature: 0.25,
       messages: [
-        { role: "system", content: "Du bist ein hilfreicher Lernassistent für Schweizer ÜK-Lernende. Antworte präzise und ohne erfundene Fakten." },
-        { role: "user", content: `${prompts[action]}\n\n${text}` }
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
       ]
     })
   });
@@ -33,4 +44,5 @@ export async function askGroq(apiKey: string, action: AiAction, html: string): P
   const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
   return json.choices?.[0]?.message?.content?.trim() || "Keine Antwort erhalten.";
 }
+import { invoke } from "@tauri-apps/api/core";
 
