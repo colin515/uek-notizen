@@ -482,6 +482,36 @@ export default function App() {
     });
   };
 
+  const removeCourse = (courseId: string) => {
+    const course = data.courses.find(item => item.id === courseId);
+    if (!course) return;
+    const noteCount = data.notes.filter(note => note.courseId === courseId).length;
+    const message = noteCount
+      ? "„" + course.number + " · " + course.title + "“ und alle " + noteCount + " zugehörigen Notizen wirklich löschen?"
+      : "„" + course.number + " · " + course.title + "“ wirklich löschen?";
+    if (!confirm(message)) return;
+
+    setData(current => {
+      const courses = current.courses.filter(item => item.id !== courseId);
+      const notes = current.notes.filter(note => note.courseId !== courseId);
+      const nextCourse = courses[0] ?? null;
+      const nextNote = nextCourse
+        ? notes
+            .filter(note => note.courseId === nextCourse.id && !note.archived)
+            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
+        : null;
+      return {
+        ...current,
+        courses,
+        notes,
+        selectedCourseId: nextCourse?.id ?? null,
+        selectedNoteId: nextNote?.id ?? null
+      };
+    });
+    setFilter("course");
+    setToast("ÜK wurde gelöscht");
+  };
+
   const format = (command: string, value?: string) => {
     editorRef.current?.focus();
     document.execCommand(command, false, value);
@@ -844,15 +874,23 @@ export default function App() {
 
           <div className="course-list">
             {data.courses.map(course => (
-              <button
-                key={course.id}
-                className={filter === "course" && course.id === selectedCourse?.id ? "course-card active" : "course-card"}
-                onClick={() => selectCourse(course)}
-              >
-                <span className="course-icon"><Layers3 size={15}/></span>
-                <span><strong>{course.number}</strong><small>{course.title}</small></span>
-                <b>{data.notes.filter(note => note.courseId === course.id && !note.archived).length}</b>
-              </button>
+              <div key={course.id} className={filter === "course" && course.id === selectedCourse?.id ? "course-card active" : "course-card"}>
+                <button className="course-main" onClick={() => selectCourse(course)}>
+                  <span className="course-icon"><Layers3 size={15}/></span>
+                  <span><strong>{course.number}</strong><small>{course.title}</small></span>
+                </button>
+                <b className="course-count">{data.notes.filter(note => note.courseId === course.id && !note.archived).length}</b>
+                <button
+                  className="course-delete"
+                  title="ÜK löschen"
+                  onClick={event => {
+                    event.stopPropagation();
+                    removeCourse(course.id);
+                  }}
+                >
+                  <Trash2 size={13}/>
+                </button>
+              </div>
             ))}
           </div>
 
