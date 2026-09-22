@@ -166,51 +166,44 @@
     <article class="step-card">
       <span class="step-badge">Schritt 1</span>
       <h3>DMG öffnen und in Programme ziehen</h3>
-      <p>Öffne die heruntergeladene Datei <code>UEK-Notizen-macOS.dmg</code> per Doppelklick in deinem Download-Ordner und ziehe das Symbol <strong>„ÜK Notizen“</strong> einfach in den Ordner <strong>„Programme“</strong>.</p>
+      <p>Öffne die heruntergeladene Datei <code>UEK-Notizen-macOS.dmg</code> per Doppelklick in deinem Download-Ordner und ziehe das Symbol <strong>„ÜK Notizen“</strong> in den Ordner <strong>„Programme“</strong>.</p>
     </article>
 
     <!-- SCHRITT 2 -->
     <article class="step-card">
       <span class="step-badge">Schritt 2</span>
-      <h3>Der einmalige macOS-Dialog</h3>
-      <p>Wenn du die App zum allerersten Mal per Doppelklick startest, blockiert macOS Apps von unabhängigen Entwicklern und zeigt diesen Dialog:</p>
+      <h3>Beim ersten Start auf „Fertig“ klicken</h3>
+      <p>Wenn du die App zum ersten Mal per Doppelklick startest, blockiert macOS die App und zeigt diesen Dialog:</p>
       
       <div class="step-visual">
         <img src="mac-gatekeeper-dialog.png" alt="macOS Sicherheits-Meldung: Apple konnte nicht überprüfen..." />
       </div>
 
+      <p style="margin-top: 18px;">
+        Klicke in diesem Dialog einfach auf <strong>„Fertig“</strong> (oder Abbrechen). <em>Nicht in den Papierkorb legen!</em>
+      </p>
+
       <div class="callout">
-        <strong>Keine Sorge:</strong> Die App ist vollkommen sicher und Open Source. Apple blendet diese Meldung standardmässig bei jeder Software ein, die nicht für 99 $/Jahr bei Apple notarisiert wurde.
+        <strong>Hintergrund:</strong> macOS blendet diesen Hinweis automatisch bei jeder Software ein, die nicht über den kostenpflichtigen Apple Developer Store signiert wurde. Die App ist quelloffen und enthält keine Schadsoftware.
       </div>
     </article>
 
     <!-- SCHRITT 3 -->
     <article class="step-card">
-      <span class="step-badge">Schritt 3 (Empfohlen)</span>
-      <h3>App mit Rechtsklick freigeben</h3>
-      <p>Um die App dauerhaft zu entsperren, musst du das <strong>nur ein einziges Mal</strong> machen:</p>
-      <ol style="color: var(--muted); font-size: 14px; line-height: 1.8; padding-left: 20px; margin: 0 0 16px;">
-        <li>Öffne deinen <strong>Programme-Ordner</strong> im Finder.</li>
-        <li>Mache einen <strong>Rechtsklick</strong> (oder halte <span class="keyboard-badge">Control ⌃</span> gedrückt und klicke) auf <strong>ÜK Notizen</strong>.</li>
-        <li>Wähle im Menü <strong>„Öffnen“</strong>.</li>
-        <li>Klicke im Dialogfenster nun auf den Button <strong>„Öffnen“</strong>.</li>
+      <span class="step-badge">Schritt 3</span>
+      <h3>In Systemeinstellungen freigeben (Dauert 10 Sekunden)</h3>
+      <p>Apple verlangt seit macOS Sequoia, dass du die App einmalig in den Systemeinstellungen bestätigst:</p>
+      <ol style="color: var(--muted); font-size: 14px; line-height: 1.9; padding-left: 20px; margin: 0 0 16px;">
+        <li>Öffne die <strong>Systemeinstellungen</strong> auf deinem Mac (über das  Apple-Menü oben links).</li>
+        <li>Klicke links auf <strong>Datenschutz &amp; Sicherheit</strong>.</li>
+        <li>Scrolle im rechten Bereich nach unten zum Abschnitt <strong>Sicherheit</strong>.</li>
+        <li>Dort findest du den Hinweis: <br/><em>„ÜK Notizen“ wurde blockiert, da es nicht von einem verifizierten Entwickler stammt.</em></li>
+        <li>Klicke direkt daneben auf <strong>„Dennoch öffnen“</strong>.</li>
+        <li>Bestätige mit deinem Mac-Passwort oder Touch ID.</li>
       </ol>
       <div class="callout">
-        ✓ <strong>Geschafft!</strong> Ab dem nächsten Mal startet ÜK Notizen immer sofort per einfachem Doppelklick.
+        ✓ <strong>Fertig!</strong> Das musst du nur ein einziges Mal tun. Ab jetzt startet ÜK Notizen immer sofort und direkt per Doppelklick.
       </div>
-    </article>
-
-    <!-- ALTERNATIVE -->
-    <article class="step-card">
-      <span class="step-badge">Alternative Methode</span>
-      <h3>Über die Systemeinstellungen freigeben</h3>
-      <p>Falls du die Meldung weggeklickt hast, kannst du sie auch direkt in macOS erlauben:</p>
-      <ol style="color: var(--muted); font-size: 14px; line-height: 1.8; padding-left: 20px; margin: 0;">
-        <li>Öffne die <strong>Systemeinstellungen</strong> auf deinem Mac.</li>
-        <li>Klicke links auf <strong>Datenschutz &amp; Sicherheit</strong>.</li>
-        <li>Scrolle ganz nach unten zum Bereich <em>Sicherheit</em>.</li>
-        <li>Dort steht: <em>„ÜK Notizen“ wurde blockiert...</em> – klicke auf <strong>„Dennoch öffnen“</strong>.</li>
-      </ol>
     </article>
   </main>
 
