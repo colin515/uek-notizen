@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 
 type AiAction = "summary" | "explain" | "improve" | "quiz";
 
+const GROQ_MODEL = "openai/gpt-oss-120b";
+
 const prompts: Record<AiAction, string> = {
   summary: "Fasse die folgende ÜK-Notiz klar und kompakt auf Deutsch zusammen. Nutze kurze Abschnitte und Stichpunkte.",
   explain: "Erkläre den Inhalt der folgenden ÜK-Notiz einfach, fachlich korrekt und mit einem praktischen Beispiel.",
@@ -17,7 +19,7 @@ async function callViaFetch(apiKey: string, systemPrompt: string, userPrompt: st
       Authorization: `Bearer ${apiKey.trim()}`
     },
     body: JSON.stringify({
-      model: "openai/gpt-oss-120b",
+      model: GROQ_MODEL,
       temperature: 0.25,
       messages: [
         { role: "system", content: systemPrompt },
