@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+const GROQ_MODEL: &str = "openai/gpt-oss-120b";
+
 #[derive(Serialize)]
 struct GroqMessage<'a> {
     role: &'a str,
@@ -43,7 +45,7 @@ async fn groq_chat(
         .post("https://api.groq.com/openai/v1/chat/completions")
         .bearer_auth(api_key.trim())
         .json(&GroqRequest {
-            model: "openai/gpt-oss-120b",
+            model: GROQ_MODEL,
             temperature: 0.25,
             messages: vec![
                 GroqMessage { role: "system", content: &system_prompt },
