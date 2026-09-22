@@ -3,6 +3,9 @@ name: Desktop Builds
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "website/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
