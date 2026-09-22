@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-const GROQ_MODEL: &str = "openai/gpt-oss-120b";
+const GROQ_MODEL: &str = "openai/gpt-oss-20b";
 
 #[derive(Serialize)]
 struct GroqMessage<'a> {
