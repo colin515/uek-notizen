@@ -97,3 +97,11 @@
     display: none;
   }
 }
+
+.course-card{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px;padding:0;border-radius:7px;text-align:left}
+.course-card .course-main{min-width:0;display:grid;grid-template-columns:28px 1fr;align-items:center;gap:7px;padding:8px;min-height:42px;text-align:left}
+.course-card .course-main:hover{background:transparent}
+.course-count{padding-right:2px;font-size:9px;color:var(--muted);font-weight:500}
+.course-delete{display:grid;place-items:center;width:26px;height:26px;margin-right:4px;border-radius:5px;color:var(--muted);opacity:0;transition:opacity .12s,background .12s,color .12s}
+.course-card:hover .course-delete,.course-card.active .course-delete{opacity:1}
+.course-delete:hover{background:color-mix(in srgb,var(--danger) 10%,transparent);color:var(--danger)}
