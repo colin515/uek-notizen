@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 type AiAction = "summary" | "explain" | "improve" | "quiz";
 
-const GROQ_MODEL = "openai/gpt-oss-120b";
+const GROQ_MODEL = "openai/gpt-oss-20b";
 
 const prompts: Record<AiAction, string> = {
   summary: "Fasse die folgende ÜK-Notiz klar und kompakt auf Deutsch zusammen. Nutze kurze Abschnitte und Stichpunkte.",
