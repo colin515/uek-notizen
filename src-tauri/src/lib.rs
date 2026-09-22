@@ -43,7 +43,7 @@ async fn groq_chat(
         .post("https://api.groq.com/openai/v1/chat/completions")
         .bearer_auth(api_key.trim())
         .json(&GroqRequest {
-            model: "llama-3.3-70b-versatile",
+            model: "openai/gpt-oss-120b",
             temperature: 0.25,
             messages: vec![
                 GroqMessage { role: "system", content: &system_prompt },
