@@ -224,6 +224,7 @@ export default function App() {
         <div className="breadcrumbs"><span>{selectedCourse ? `${selectedCourse.number} · ${selectedCourse.title}` : "ÜK Notizen"}</span>{selected && <><span>/</span><strong>{selected.title}</strong></>}</div>
         <div className="top-actions">
           <button className="icon-button" title="Darstellung wechseln" onClick={() => setData(current => ({ ...current, settings: { ...current.settings, theme: current.settings.theme === "light" ? "dark" : "light" } }))}>{data.settings.theme === "light" ? <Moon size={18}/> : <Sun size={18}/>}</button>
+          {selected && <button className="secondary ai-top-btn" title="KI-Assistent öffnen" onClick={() => { setAiOpen(true); setAiText(""); }}><Sparkles size={16} color="var(--accent)"/> <strong>KI-Assistent</strong></button>}
           {selectedCourse && <button className="secondary" onClick={exportCourse}><Download size={16}/> Ganzen ÜK als Word</button>}
           {selectedCourse && <button className="primary" onClick={addNote}><FilePlus2 size={16}/> Neue Notiz</button>}
         </div>
@@ -250,7 +251,7 @@ export default function App() {
           <span/><button onClick={() => format("formatBlock", "h2")}>H2</button><button onClick={() => format("insertUnorderedList")}>• Liste</button><button onClick={() => format("insertOrderedList")}>1. Liste</button><button onClick={() => format("formatBlock", "blockquote")}>❝</button>
           <div className="toolbar-spacer"/>
           <button title="Favorit" onClick={() => patchNote({ favorite: !selected.favorite })}><Heart size={16} fill={selected.favorite ? "currentColor" : "none"}/></button>
-          <button title="KI-Assistent" onClick={() => { setAiOpen(true); setAiText(""); }}><Sparkles size={16}/></button>
+          <button className="toolbar-ai-btn" title="KI-Assistent" onClick={() => { setAiOpen(true); setAiText(""); }}><Sparkles size={15}/> <span>KI-Assistent</span></button>
           <button title="Archivieren" onClick={() => patchNote({ archived: !selected.archived })}><Archive size={16}/></button>
           <button className="danger" title="Löschen" onClick={removeNote}><Trash2 size={16}/></button>
         </div>

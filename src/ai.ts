@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+
 type AiAction = "summary" | "explain" | "improve" | "quiz";
 
 const prompts: Record<AiAction, string> = {
@@ -7,25 +9,13 @@ const prompts: Record<AiAction, string> = {
   quiz: "Erstelle aus der folgenden ÜK-Notiz fünf Lernfragen mit den Antworten darunter. Antworte auf Deutsch."
 };
 
-export async function askGroq(apiKey: string, action: AiAction, html: string): Promise<string> {
-  if (!apiKey.trim()) throw new Error("Bitte trage zuerst deinen Groq API-Key in den Einstellungen ein.");
-  const text = new DOMParser().parseFromString(html, "text/html").body.textContent?.trim() ?? "";
-  if (!text) throw new Error("Die Notiz ist leer.");
-
-  const systemPrompt = "Du bist ein hilfreicher Lernassistent für Schweizer ÜK-Lernende. Antworte präzise und ohne erfundene Fakten.";
-  const userPrompt = `${prompts[action]}\n\n${text}`;
-
-  if ("__TAURI_INTERNALS__" in window) {
-    return invoke<string>("groq_chat", {
-      apiKey: apiKey.trim(),
-      systemPrompt,
-      userPrompt
-    });
-  }
-
+async function callViaFetch(apiKey: string, systemPrompt: string, userPrompt: string): Promise<string> {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey.trim()}`
+    },
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
       temperature: 0.25,
@@ -37,12 +27,39 @@ export async function askGroq(apiKey: string, action: AiAction, html: string): P
   });
 
   if (!response.ok) {
-    if (response.status === 401) throw new Error("Der Groq API-Key ist ungültig.");
-    if (response.status === 429) throw new Error("Das Groq-Limit ist gerade erreicht. Bitte versuche es später erneut.");
-    throw new Error(`Groq konnte nicht erreicht werden (${response.status}).`);
+    if (response.status === 401) throw new Error("Der Groq API-Key ist ungültig. Bitte prüfe den Schlüssel in den Einstellungen.");
+    if (response.status === 429) throw new Error("Das Groq-Limit ist gerade erreicht. Bitte versuche es in wenigen Minuten erneut.");
+    const errText = await response.text().catch(() => "");
+    throw new Error(`Groq Fehler (${response.status}): ${errText.slice(0, 160) || "Verbindung fehlgeschlagen"}`);
   }
-  const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-  return json.choices?.[0]?.message?.content?.trim() || "Keine Antwort erhalten.";
-}
-import { invoke } from "@tauri-apps/api/core";
 
+  const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  return json.choices?.[0]?.message?.content?.trim() || "Keine Antwort von der KI erhalten.";
+}
+
+export async function askGroq(apiKey: string, action: AiAction, html: string): Promise<string> {
+  if (!apiKey.trim()) throw new Error("Bitte trage zuerst deinen Groq API-Key in den Einstellungen ein.");
+  const text = new DOMParser().parseFromString(html, "text/html").body.textContent?.trim() ?? "";
+  if (!text) throw new Error("Die Notiz ist leer. Schreibe zuerst etwas Inhalt in deine Notiz.");
+
+  const systemPrompt = "Du bist ein hilfreicher Lernassistent für Schweizer ÜK-Lernende. Antworte präzise und ohne erfundene Fakten.";
+  const userPrompt = `${prompts[action]}\n\n${text}`;
+
+  // Versuch 1: Falls in Tauri, versuche zuerst das native Rust-Backend
+  if ("__TAURI_INTERNALS__" in window) {
+    try {
+      return await invoke<string>("groq_chat", {
+        apiKey: apiKey.trim(),
+        systemPrompt,
+        userPrompt
+      });
+    } catch (rustErr) {
+      console.warn("Tauri invoke groq_chat fehlgeschlagen, versuche direkten Web-Fetch Fallback:", rustErr);
+      // Automatischer Fallback auf direkten HTTPS Fetch!
+      return await callViaFetch(apiKey, systemPrompt, userPrompt);
+    }
+  }
+
+  // Versuch 2: Direkter Fetch (z.B. im Browser / Fallback)
+  return await callViaFetch(apiKey, systemPrompt, userPrompt);
+}
