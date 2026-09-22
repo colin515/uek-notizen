@@ -1,3 +1,4 @@
+
 import {
   AlignmentType,
   Document,
@@ -20,14 +21,23 @@ function htmlToParagraphs(html: string): Paragraph[] {
   const body = new DOMParser().parseFromString(html, "text/html").body;
   const paragraphs: Paragraph[] = [];
 
-  const visit = (element: Element) => {
+  Array.from(body.children).forEach(element => {
     const text = textContent(element);
     if (!text) return;
     const tag = element.tagName.toLowerCase();
+
     if (tag === "h1" || tag === "h2") {
-      paragraphs.push(new Paragraph({ text, heading: HeadingLevel.HEADING_2, spacing: { before: 260, after: 100 } }));
+      paragraphs.push(new Paragraph({
+        text,
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 260, after: 100 }
+      }));
     } else if (tag === "h3") {
-      paragraphs.push(new Paragraph({ text, heading: HeadingLevel.HEADING_3, spacing: { before: 220, after: 80 } }));
+      paragraphs.push(new Paragraph({
+        text,
+        heading: HeadingLevel.HEADING_3,
+        spacing: { before: 220, after: 80 }
+      }));
     } else if (tag === "ul" || tag === "ol") {
       Array.from(element.children).forEach((item, index) => {
         paragraphs.push(new Paragraph({
@@ -44,11 +54,13 @@ function htmlToParagraphs(html: string): Paragraph[] {
         spacing: { after: 120 }
       }));
     } else {
-      paragraphs.push(new Paragraph({ text, spacing: { after: 120, line: 320 } }));
+      paragraphs.push(new Paragraph({
+        text,
+        spacing: { after: 120, line: 320 }
+      }));
     }
-  };
+  });
 
-  Array.from(body.children).forEach(visit);
   return paragraphs.length ? paragraphs : [new Paragraph({ text: "Keine Inhalte vorhanden." })];
 }
 
@@ -63,10 +75,15 @@ export async function exportCourseDocx(course: Course, notes: Note[], author: st
 
   const children: Array<Paragraph | TableOfContents> = [
     new Paragraph({
-      text: `${course.number} – ${course.title}`,
+      text: course.number + " – " + course.title,
       heading: HeadingLevel.TITLE,
       alignment: AlignmentType.CENTER,
-      spacing: { before: 1600, after: 360 }
+      spacing: { before: 1500, after: 360 }
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: "ÜK: " + course.number + " – " + course.title, bold: true, size: 28 })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 180 }
     }),
     new Paragraph({
       children: [new TextRun({ text: author || "ÜK-Lernende/r", size: 26 })],
@@ -74,11 +91,15 @@ export async function exportCourseDocx(course: Course, notes: Note[], author: st
       spacing: { after: 160 }
     }),
     new Paragraph({
-      children: [new TextRun({ text: `Erstellt am ${new Date().toLocaleDateString("de-CH")}`, color: "666666" })],
+      children: [new TextRun({ text: "Erstellt am " + new Date().toLocaleDateString("de-CH"), color: "666666" })],
       alignment: AlignmentType.CENTER
     }),
     new Paragraph({ children: [new PageBreak()] }),
-    new Paragraph({ text: "Inhaltsverzeichnis", heading: HeadingLevel.TITLE, spacing: { after: 240 } }),
+    new Paragraph({ text: "Inhaltsverzeichnis", heading: HeadingLevel.TITLE, spacing: { after: 120 } }),
+    new Paragraph({
+      children: [new TextRun({ text: course.number + " – " + course.title, bold: true, color: "666666" })],
+      spacing: { after: 220 }
+    }),
     new TableOfContents("Inhaltsverzeichnis", {
       hyperlink: true,
       headingStyleRange: "1-3",
@@ -98,7 +119,7 @@ export async function exportCourseDocx(course: Course, notes: Note[], author: st
       new Paragraph({
         children: [
           new TextRun({
-            text: `Zuletzt bearbeitet: ${new Date(note.updatedAt).toLocaleDateString("de-CH")} · ${note.tags.join(", ")}`,
+            text: "Zuletzt bearbeitet: " + new Date(note.updatedAt).toLocaleDateString("de-CH") + (note.tags.length ? " · " + note.tags.join(", ") : ""),
             color: "777777",
             size: 18
           })
@@ -118,7 +139,11 @@ export async function exportCourseDocx(course: Course, notes: Note[], author: st
       new Paragraph({
         alignment: AlignmentType.CENTER,
         children: [
-          new TextRun({ text: `${author || "ÜK-Lernende/r"} · ${course.number} ${course.title} · Seite `, size: 18, color: "666666" }),
+          new TextRun({
+            text: (author || "ÜK-Lernende/r") + " · " + course.number + " · " + course.title + " · Seite ",
+            size: 18,
+            color: "666666"
+          }),
           new TextRun({ children: [PageNumber.CURRENT], size: 18, color: "666666" })
         ]
       })
@@ -127,7 +152,7 @@ export async function exportCourseDocx(course: Course, notes: Note[], author: st
 
   const doc = new Document({
     creator: author || "ÜK Notizen",
-    title: `${course.number} – ${course.title}`,
+    title: course.number + " – " + course.title,
     description: "Alle Notizen eines ÜKs",
     features: { updateFields: true },
     numbering: {
@@ -157,7 +182,7 @@ export async function exportCourseDocx(course: Course, notes: Note[], author: st
   const blob = await Packer.toBlob(doc);
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `${safeFileName(course.number)}-${safeFileName(course.title)}.docx`;
+  link.download = safeFileName(course.number + "-" + course.title) + ".docx";
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }

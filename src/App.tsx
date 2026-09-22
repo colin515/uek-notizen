@@ -1,28 +1,226 @@
+
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen,
-  Heart, Layers3, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search,
-  Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, X
-} from "lucide-react";
-import { askGroq } from "./ai";
+import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, Heart, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, X } from "lucide-react";
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import { askGroq, askGroqChat, type AiAction, type AiChatResult } from "./ai";
 import { exportCourseDocx } from "./docxExport";
+import { exportCourseTxt } from "./txtExport";
 import { createId, loadData, sampleCourse, sampleNote, saveData } from "./storage";
 import type { AppData, Course, Note } from "./types";
 
 type Filter = "course" | "favorites" | "archive";
-type AiAction = "summary" | "explain" | "improve" | "quiz";
+type ChatMessage = { role: "user" | "assistant"; content: string };
+type ContextMenu = { x: number; y: number; noteId: string } | null;
 
-function stripHtml(html: string) {
+const slashCommands = [
+  { name: "H2", query: "h2", hint: "Überschrift" },
+  { name: "H3", query: "h3", hint: "Kleine Überschrift" },
+  { name: "Stichpunkte", query: "bullet", hint: "Aufzählung" },
+  { name: "Nummerierte Liste", query: "number", hint: "Nummerierung" },
+  { name: "Checkliste", query: "check", hint: "☐ Aufgabe" },
+  { name: "Zitat", query: "quote", hint: "Zitatblock" },
+  { name: "Trennlinie", query: "divider", hint: "Horizontale Linie" },
+  { name: "Bild", query: "bild", hint: "Bild einfügen" }
+];
+
+const SEARCH_GROUPS = [
+  ["kabel", "kabels", "usb", "usb-c", "usbc", "hdmi", "displayport", "display", "monitor", "bildschirm", "anschluss", "anschlüsse", "video", "signal", "adapter", "siplay"],
+  ["netzwerk", "netzwerke", "lan", "wlan", "ethernet", "ip", "router", "switch", "tcp", "udp"],
+  ["betriebssystem", "windows", "linux", "macos", "os", "treiber", "installation"],
+  ["sicherheit", "passwort", "phishing", "malware", "virus", "firewall", "schutz"]
+];
+
+function normalizeSearch(value: string): string {
+  return value
+    .toLocaleLowerCase("de-CH")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9äöü\s-]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function searchTerms(value: string): string[] {
+  return normalizeSearch(value)
+    .split(" ")
+    .filter(Boolean)
+    .map(term => term.length > 5 && term.endsWith("en") ? term.slice(0, -2) : term.endsWith("s") && term.length > 4 ? term.slice(0, -1) : term);
+}
+
+function searchScore(note: Note, course: Course | undefined, query: string): number {
+  const normalizedQuery = normalizeSearch(query);
+  if (!normalizedQuery) return 1;
+  const haystack = normalizeSearch(
+    [note.title, stripHtml(note.content), note.tags.join(" "), course?.number ?? "", course?.title ?? ""].join(" ")
+  );
+  const haystackWords = new Set(haystack.split(" ").filter(Boolean));
+  if (haystack.includes(normalizedQuery)) return 20;
+
+  let score = 0;
+  for (const term of searchTerms(query)) {
+    if (haystack.includes(term)) {
+      score += 6;
+      continue;
+    }
+
+    for (const group of SEARCH_GROUPS) {
+      if (group.some(item => item.includes(term) || term.includes(item))) {
+        if (group.some(item => haystack.includes(item))) score += 4;
+      }
+    }
+
+    if (term.length >= 4 && Array.from(haystackWords).some(word =>
+      word.startsWith(term.slice(0, Math.max(3, term.length - 1)))
+    )) {
+      score += 2;
+    }
+  }
+  return score;
+}
+
+function stripHtml(html: string): string {
   return new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
 }
 
-function createNote(courseId: string): Note {
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function plainTextToHtml(value: string): string {
+  const cleaned = value.replace(/\r/g, "").trim();
+  if (!cleaned) return "<p></p>";
+
+  const lines = cleaned.split("\n");
+  const output: string[] = [];
+  let bullets: string[] = [];
+  let numbers: string[] = [];
+
+  const flush = () => {
+    if (bullets.length) {
+      output.push("<ul>" + bullets.map(item => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>");
+      bullets = [];
+    }
+    if (numbers.length) {
+      output.push("<ol>" + numbers.map(item => "<li>" + escapeHtml(item) + "</li>").join("") + "</ol>");
+      numbers = [];
+    }
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    if (/^[-•*]\s+/.test(line)) {
+      if (numbers.length) flush();
+      bullets.push(line.replace(/^[-•*]\s+/, ""));
+    } else if (/^\d+[.)]\s+/.test(line)) {
+      if (bullets.length) flush();
+      numbers.push(line.replace(/^\d+[.)]\s+/, ""));
+    } else {
+      flush();
+      output.push("<p>" + escapeHtml(line) + "</p>");
+    }
+  }
+
+  flush();
+  return output.join("") || "<p></p>";
+}
+
+function currentSelectionRange(root: HTMLElement): Range | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || !root.contains(selection.anchorNode)) return null;
+  return selection.getRangeAt(0).cloneRange();
+}
+
+function makeTextRange(root: HTMLElement, start: number, end: number): Range | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  let node = walker.nextNode();
+  while (node) {
+    nodes.push(node as Text);
+    node = walker.nextNode();
+  }
+  if (!nodes.length) return null;
+
+  let offset = 0;
+  let startPoint: { node: Text; offset: number } | null = null;
+  let endPoint: { node: Text; offset: number } | null = null;
+
+  for (const textNode of nodes) {
+    const nextOffset = offset + textNode.length;
+    if (!startPoint && start >= offset && start <= nextOffset) {
+      startPoint = { node: textNode, offset: start - offset };
+    }
+    if (!endPoint && end >= offset && end <= nextOffset) {
+      endPoint = { node: textNode, offset: end - offset };
+    }
+    offset = nextOffset;
+  }
+
+  if (!startPoint) startPoint = { node: nodes[nodes.length - 1], offset: nodes[nodes.length - 1].length };
+  if (!endPoint) endPoint = { node: nodes[nodes.length - 1], offset: nodes[nodes.length - 1].length };
+
+  const range = document.createRange();
+  range.setStart(startPoint.node, startPoint.offset);
+  range.setEnd(endPoint.node, endPoint.offset);
+  return range;
+}
+
+function replaceSlashCommand(root: HTMLElement, replacementHtml: string): boolean {
+  const caret = currentSelectionRange(root);
+  if (!caret || !caret.collapsed) return false;
+
+  const before = caret.cloneRange();
+  before.selectNodeContents(root);
+  before.setEnd(caret.endContainer, caret.endOffset);
+  const text = before.toString();
+  const match = text.match(/\/([^\s/]*)$/);
+  if (!match) return false;
+
+  const range = makeTextRange(root, text.length - match[0].length, text.length);
+  if (!range) return false;
+
+  range.deleteContents();
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  document.execCommand("insertHTML", false, replacementHtml);
+  return true;
+}
+
+function getSlashQuery(root: HTMLElement): string | null {
+  const caret = currentSelectionRange(root);
+  if (!caret || !caret.collapsed) return null;
+
+  const before = caret.cloneRange();
+  before.selectNodeContents(root);
+  before.setEnd(caret.endContainer, caret.endOffset);
+  const match = before.toString().match(/\/([^\s/]*)$/);
+  return match ? match[1].toLocaleLowerCase("de-CH") : null;
+}
+
+function insertImageAtSelection(root: HTMLElement, dataUrl: string, alt: string): void {
+  root.focus();
+  document.execCommand(
+    "insertHTML",
+    false,
+    '<img src="' + dataUrl + '" alt="' + escapeHtml(alt) + '" class="note-image" />'
+  );
+}
+
+function createNote(courseId: string, title = "Unbenannte Notiz", content = "<p></p>"): Note {
   const now = new Date().toISOString();
   return {
     id: createId(),
     courseId,
-    title: "Unbenannte Notiz",
-    content: "<p></p>",
+    title,
+    content,
     tags: [],
     favorite: false,
     archived: false,
@@ -34,15 +232,23 @@ function createNote(courseId: string): Note {
 function StableEditor({
   note,
   editorRef,
-  onChange
+  syncVersion,
+  onChange,
+  onKeyDown,
+  onInput,
+  onPaste
 }: {
   note: Note;
   editorRef: React.RefObject<HTMLDivElement | null>;
+  syncVersion: number;
   onChange: (html: string) => void;
+  onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+  onInput: (event: React.FormEvent<HTMLDivElement>) => void;
+  onPaste: (event: React.ClipboardEvent<HTMLDivElement>) => void;
 }) {
   useEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = note.content;
-  }, [note.id, editorRef]);
+  }, [note.id, syncVersion, editorRef]);
 
   return (
     <div
@@ -50,7 +256,13 @@ function StableEditor({
       className="editor"
       contentEditable
       suppressContentEditableWarning
-      onInput={event => onChange(event.currentTarget.innerHTML)}
+      spellCheck
+      onInput={event => {
+        onChange(event.currentTarget.innerHTML);
+        onInput(event);
+      }}
+      onKeyDown={onKeyDown}
+      onPaste={onPaste}
     />
   );
 }
@@ -66,43 +278,91 @@ export default function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    { role: "assistant", content: "Ich kann in ÜK Notizen nicht nur antworten, sondern auch ÜKs und Notizen erstellen, Texte verbessern und Inhalte direkt in deinem Dokument ändern. Sag mir einfach, was ich machen soll." }
+  ]);
   const [toast, setToast] = useState("");
   const [setup, setSetup] = useState({ name: data.settings.name, apiKey: data.settings.apiKey });
+  const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [editorSyncVersion, setEditorSyncVersion] = useState(0);
+  const [selectedChatAction, setSelectedChatAction] = useState<AiAction | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
 
   useEffect(() => {
     saveData(data);
     document.documentElement.dataset.theme = data.settings.theme;
   }, [data]);
+
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(""), 2600);
     return () => clearTimeout(id);
   }, [toast]);
 
+  useEffect(() => {
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, []);
+
   const selectedCourse = data.courses.find(course => course.id === data.selectedCourseId) ?? null;
   const selected = data.notes.find(note => note.id === data.selectedNoteId) ?? null;
+
   const courseLabel = (courseId: string) => {
     const course = data.courses.find(item => item.id === courseId);
-    return course ? `${course.number} · ${course.title}` : "Unbekannter ÜK";
+    return course ? course.number + " · " + course.title : "Unbekannter ÜK";
   };
 
-  const visible = useMemo(() => data.notes.filter(note => {
-    if (filter === "course" && (note.courseId !== data.selectedCourseId || note.archived)) return false;
-    if (filter === "favorites" && (!note.favorite || note.archived)) return false;
-    if (filter === "archive" && !note.archived) return false;
-    const course = data.courses.find(item => item.id === note.courseId);
-    const haystack = `${note.title} ${stripHtml(note.content)} ${course?.number ?? ""} ${course?.title ?? ""} ${note.tags.join(" ")}`.toLowerCase();
-    return haystack.includes(query.toLowerCase());
-  }).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [data.notes, data.courses, data.selectedCourseId, filter, query]);
+  const visible = useMemo(() => {
+    return data.notes
+      .filter(note => {
+        if (filter === "course" && (note.courseId !== data.selectedCourseId || note.archived)) return false;
+        if (filter === "favorites" && (!note.favorite || note.archived)) return false;
+        if (filter === "archive" && !note.archived) return false;
+        return true;
+      })
+      .map(note => ({
+        note,
+        score: searchScore(note, data.courses.find(course => course.id === note.courseId), query)
+      }))
+      .filter(item => !query.trim() || item.score > 0)
+      .sort((a, b) => b.score - a.score || b.note.updatedAt.localeCompare(a.note.updatedAt))
+      .map(item => item.note);
+  }, [data.notes, data.courses, data.selectedCourseId, filter, query]);
 
   const patchNote = (patch: Partial<Note>) => {
     if (!selected) return;
     setData(current => ({
       ...current,
-      notes: current.notes.map(note => note.id === selected.id
-        ? { ...note, ...patch, updatedAt: new Date().toISOString() }
-        : note)
+      notes: current.notes.map(note =>
+        note.id === selected.id
+          ? { ...note, ...patch, updatedAt: new Date().toISOString() }
+          : note
+      )
+    }));
+  };
+
+  const replaceNoteContent = (noteId: string, text: string, title?: string) => {
+    const html = plainTextToHtml(text);
+    if (noteId === selected?.id && editorRef.current) {
+      editorRef.current.innerHTML = html;
+      setEditorSyncVersion(value => value + 1);
+    }
+    setData(current => ({
+      ...current,
+      notes: current.notes.map(note =>
+        note.id === noteId
+          ? { ...note, content: html, ...(title ? { title } : {}), updatedAt: new Date().toISOString() }
+          : note
+      )
     }));
   };
 
@@ -110,44 +370,80 @@ export default function App() {
     const firstNote = data.notes
       .filter(note => note.courseId === course.id && !note.archived)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    setData(current => ({ ...current, selectedCourseId: course.id, selectedNoteId: firstNote?.id ?? null }));
+
+    setData(current => ({
+      ...current,
+      selectedCourseId: course.id,
+      selectedNoteId: firstNote?.id ?? null
+    }));
     setFilter("course");
   };
 
-  const addCourse = () => {
-    if (!courseDraft.number.trim() || !courseDraft.title.trim()) return;
+  const addCourse = (numberOverride?: string, titleOverride?: string): string | null => {
+    const number = (numberOverride ?? courseDraft.number).trim();
+    const title = (titleOverride ?? courseDraft.title).trim();
+    if (!title) return null;
+
     const course: Course = {
       id: createId(),
-      number: courseDraft.number.trim(),
-      title: courseDraft.title.trim(),
+      number: number || "ÜK",
+      title,
       createdAt: new Date().toISOString()
     };
+
     setData(current => ({
       ...current,
       courses: [...current.courses, course],
       selectedCourseId: course.id,
       selectedNoteId: null
     }));
+
     setCourseDraft({ number: "", title: "" });
     setCourseModalOpen(false);
     setFilter("course");
     setToast("ÜK wurde erstellt");
+    return course.id;
   };
 
-  const addNote = () => {
-    if (!selectedCourse) {
+  const addNote = (title = "Unbenannte Notiz", content = "<p></p>", courseId = selectedCourse?.id): string | null => {
+    if (!courseId) {
       setCourseModalOpen(true);
-      return;
+      return null;
     }
-    const note = createNote(selectedCourse.id);
-    setData(current => ({ ...current, notes: [note, ...current.notes], selectedNoteId: note.id }));
+
+    const note = createNote(courseId, title, content);
+    setData(current => ({
+      ...current,
+      notes: [note, ...current.notes],
+      selectedNoteId: note.id,
+      selectedCourseId: courseId
+    }));
     setFilter("course");
+    return note.id;
   };
 
-  const removeNote = () => {
-    if (!selected || !confirm(`„${selected.title}“ wirklich löschen?`)) return;
+  const duplicateNote = (noteId: string) => {
+    const original = data.notes.find(note => note.id === noteId);
+    if (!original) return;
+
+    const copy = createNote(original.courseId, original.title + " – Kopie", original.content);
+    copy.tags = [...original.tags];
+
+    setData(current => ({
+      ...current,
+      notes: [copy, ...current.notes],
+      selectedNoteId: copy.id,
+      selectedCourseId: copy.courseId
+    }));
+    setToast("Notiz dupliziert");
+  };
+
+  const removeNote = (noteId = selected?.id) => {
+    const target = data.notes.find(note => note.id === noteId);
+    if (!target || !confirm("„" + target.title + "“ wirklich löschen?")) return;
+
     setData(current => {
-      const notes = current.notes.filter(note => note.id !== selected.id);
+      const notes = current.notes.filter(note => note.id !== target.id);
       const next = notes.find(note => note.courseId === current.selectedCourseId && !note.archived);
       return { ...current, notes, selectedNoteId: next?.id ?? null };
     });
@@ -159,15 +455,181 @@ export default function App() {
     patchNote({ content: editorRef.current?.innerHTML ?? "" });
   };
 
-  const runAi = async (action: AiAction) => {
+  const openAi = () => {
+    setAiOpen(true);
+    setAiText("");
+  };
+
+  const runQuickAi = async (action: AiAction) => {
     if (!selected) return;
+
     setAiOpen(true);
     setAiLoading(true);
+    setSelectedChatAction(action);
     setAiText("");
+
+    const labels: Record<AiAction, string> = {
+      summary: "Zusammenfassen",
+      explain: "Einfach erklären",
+      improve: "Text verbessern",
+      quiz: "Lernfragen erstellen"
+    };
+
+    setChatMessages(messages => [...messages, { role: "user", content: labels[action] + " für die aktuelle Notiz" }]);
+
     try {
-      setAiText(await askGroq(data.settings.apiKey, action, selected.content));
+      const result = await askGroq(data.settings.apiKey, action, selected.content);
+
+      if (action === "improve") {
+        replaceNoteContent(selected.id, result);
+        setAiText(result);
+        setChatMessages(messages => [
+          ...messages,
+          { role: "assistant", content: "Fertig. Der verbesserte Text wurde direkt in die aktuelle Notiz eingesetzt und der alte Inhalt vollständig ersetzt." }
+        ]);
+        setToast("Text wurde verbessert und ersetzt");
+      } else {
+        setAiText(result);
+        setChatMessages(messages => [...messages, { role: "assistant", content: result }]);
+      }
     } catch (error) {
-      setAiText(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      setAiText(message);
+      setChatMessages(messages => [...messages, { role: "assistant", content: message }]);
+    } finally {
+      setAiLoading(false);
+      setSelectedChatAction(null);
+    }
+  };
+
+  const buildAiContext = () => {
+    const currentCourse = selectedCourse
+      ? "Aktueller ÜK: " + selectedCourse.number + " · " + selectedCourse.title
+      : "Kein ÜK ausgewählt";
+
+    const currentNote = selected
+      ? "Aktuelle Notiz: " + selected.title + "\n" + stripHtml(selected.content).slice(0, 7000)
+      : "Keine Notiz ausgewählt";
+
+    const courses = data.courses.map(course => ({
+      id: course.id,
+      number: course.number,
+      title: course.title
+    }));
+
+    const notes = data.notes
+      .filter(note => !note.archived)
+      .slice(0, 30)
+      .map(note => ({
+        id: note.id,
+        courseId: note.courseId,
+        title: note.title,
+        content: stripHtml(note.content).slice(0, 1200)
+      }));
+
+    return { currentCourse, currentNote, courses, notes };
+  };
+
+  const applyAiActions = (result: AiChatResult): string => {
+    let createdCourseId: string | null = null;
+    let createdNoteId: string | null = null;
+    let changedCurrentNote = false;
+
+    setData(current => {
+      let courses = [...current.courses];
+      let notes = [...current.notes];
+      let selectedCourseId = current.selectedCourseId;
+      let selectedNoteId = current.selectedNoteId;
+
+      for (const action of result.actions) {
+        if (action.type === "create_course") {
+          const course: Course = {
+            id: createId(),
+            number: (action.number ?? "ÜK").trim() || "ÜK",
+            title: action.title.trim() || "Neuer ÜK",
+            createdAt: new Date().toISOString()
+          };
+          courses.push(course);
+          createdCourseId = course.id;
+          selectedCourseId = course.id;
+          selectedNoteId = null;
+        }
+
+        if (action.type === "create_note") {
+          let courseId = action.courseId;
+          if (!courseId || courseId === "current") courseId = selectedCourseId ?? undefined;
+          if (courseId === "newest_created") courseId = createdCourseId ?? selectedCourseId ?? undefined;
+          if (!courseId) courseId = createdCourseId ?? selectedCourseId ?? undefined;
+          if (!courseId) continue;
+
+          const note: Note = {
+            ...createNote(courseId, action.title.trim() || "Neue Notiz", plainTextToHtml(action.content)),
+            tags: Array.isArray(action.tags) ? action.tags.filter(Boolean).slice(0, 10) : []
+          };
+
+          notes.unshift(note);
+          createdNoteId = note.id;
+          selectedCourseId = courseId;
+          selectedNoteId = note.id;
+        }
+
+        if (action.type === "replace_note") {
+          const noteId = action.noteId || selectedNoteId;
+          if (!noteId) continue;
+          const html = plainTextToHtml(action.content);
+          notes = notes.map(note => note.id === noteId
+            ? { ...note, content: html, ...(action.title ? { title: action.title } : {}), updatedAt: new Date().toISOString() }
+            : note
+          );
+          selectedNoteId = noteId;
+          changedCurrentNote = noteId === current.selectedNoteId;
+        }
+
+        if (action.type === "update_note") {
+          const noteId = action.noteId || selectedNoteId;
+          if (!noteId) continue;
+          notes = notes.map(note => note.id === noteId
+            ? {
+                ...note,
+                ...(action.title ? { title: action.title } : {}),
+                ...(action.content !== undefined ? { content: plainTextToHtml(action.content) } : {}),
+                updatedAt: new Date().toISOString()
+              }
+            : note
+          );
+          selectedNoteId = noteId;
+          changedCurrentNote = noteId === current.selectedNoteId;
+        }
+      }
+
+      return { ...current, courses, notes, selectedCourseId, selectedNoteId };
+    });
+
+    if (changedCurrentNote) setEditorSyncVersion(value => value + 1);
+    if (createdNoteId) setToast("Notiz wurde von der KI erstellt");
+    else if (createdCourseId) setToast("ÜK wurde von der KI erstellt");
+
+    return result.reply;
+  };
+
+  const sendAiChat = async () => {
+    const message = chatInput.trim();
+    if (!message || aiLoading) return;
+
+    setChatInput("");
+    setAiLoading(true);
+    setAiOpen(true);
+    setChatMessages(messages => [...messages, { role: "user", content: message }]);
+
+    try {
+      const result = await askGroqChat(data.settings.apiKey, message, buildAiContext());
+      const reply = applyAiActions(result);
+      setChatMessages(messages => [...messages, { role: "assistant", content: reply }]);
+    } catch (error) {
+      setChatMessages(messages => [
+        ...messages,
+        { role: "assistant", content: error instanceof Error ? error.message : String(error) }
+      ]);
     } finally {
       setAiLoading(false);
     }
@@ -175,120 +637,489 @@ export default function App() {
 
   const exportCourse = async () => {
     if (!selectedCourse) return;
-    await exportCourseDocx(selectedCourse, data.notes, data.settings.name);
-    setToast("ÜK-Dokument wurde exportiert");
+    try {
+      await exportCourseDocx(selectedCourse, data.notes, data.settings.name);
+      setToast("ÜK-Dokument wurde als Word exportiert");
+    } catch (error) {
+      setToast("Word-Export fehlgeschlagen: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  const exportTxt = async (course = selectedCourse) => {
+    if (!course) return;
+    try {
+      await exportCourseTxt(course, data.notes);
+      setToast("TXT-Dateien wurden in Downloads/" + course.number + " - " + course.title + " gespeichert");
+    } catch (error) {
+      setToast("TXT-Export fehlgeschlagen: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  const saveSelection = () => {
+    if (editorRef.current) savedSelectionRef.current = currentSelectionRange(editorRef.current);
+  };
+
+  const insertImage = () => {
+    saveSelection();
+    imageInputRef.current?.click();
+  };
+
+  const handleImageSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !file.type.startsWith("image/") || !editorRef.current) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      editor.focus();
+      if (savedSelectionRef.current) {
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(savedSelectionRef.current);
+      }
+
+      insertImageAtSelection(editor, String(reader.result), file.name);
+      patchNote({ content: editor.innerHTML });
+      setToast("Bild eingefügt");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const runSlashCommand = (command: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const replacements: Record<string, string> = {
+      h2: "<h2>Überschrift</h2><p></p>",
+      h3: "<h3>Unterüberschrift</h3><p></p>",
+      bullet: "<ul><li>Erster Punkt</li><li>Zweiter Punkt</li></ul><p></p>",
+      number: "<ol><li>Erster Punkt</li><li>Zweiter Punkt</li></ol><p></p>",
+      check: "<p>☐ Aufgabe</p><p>☐ Nächste Aufgabe</p><p></p>",
+      quote: "<blockquote>Zitat oder wichtige Aussage</blockquote><p></p>",
+      divider: "<hr /><p></p>"
+    };
+
+    if (command === "bild") {
+      replaceSlashCommand(editor, "");
+      insertImage();
+    } else if (replacements[command]) {
+      replaceSlashCommand(editor, replacements[command]);
+      patchNote({ content: editor.innerHTML });
+    }
+
+    setSlashQuery(null);
+  };
+
+  const updateSlashMenu = () => {
+    if (editorRef.current) setSlashQuery(getSlashQuery(editorRef.current));
+  };
+
+  const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (slashQuery !== null && event.key === "Escape") {
+      setSlashQuery(null);
+      event.preventDefault();
+      return;
+    }
+
+    if (slashQuery !== null && event.key === "Enter") {
+      const match = slashCommands.find(command =>
+        command.query.startsWith(slashQuery) ||
+        command.name.toLocaleLowerCase("de-CH").startsWith(slashQuery)
+      );
+      if (match) {
+        event.preventDefault();
+        runSlashCommand(match.query);
+      }
+    }
+  };
+
+  const handleEditorPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const image = Array.from(event.clipboardData.files).find(file => file.type.startsWith("image/"));
+    if (!image) return;
+
+    event.preventDefault();
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (!editorRef.current) return;
+      insertImageAtSelection(editorRef.current, String(reader.result), image.name);
+      patchNote({ content: editorRef.current.innerHTML });
+    };
+    reader.readAsDataURL(image);
+  };
+
+  const handleNoteContextMenu = (event: ReactMouseEvent, noteId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({
+      x: Math.min(event.clientX, window.innerWidth - 235),
+      y: Math.min(event.clientY, window.innerHeight - 260),
+      noteId
+    });
   };
 
   if (!data.settings.onboarded) {
-    return <Onboarding setup={setup} setSetup={setSetup} finish={() => {
-      const course = sampleCourse();
-      const note = sampleNote(course.id);
-      setData({
-        settings: { ...data.settings, ...setup, onboarded: true },
-        courses: [course],
-        notes: [note],
-        selectedCourseId: course.id,
-        selectedNoteId: note.id
-      });
-    }} />;
+    return (
+      <Onboarding
+        setup={setup}
+        setSetup={setSetup}
+        finish={() => {
+          const course = sampleCourse();
+          const note = sampleNote(course.id);
+          setData({
+            settings: { ...data.settings, ...setup, onboarded: true },
+            courses: [course],
+            notes: [note],
+            selectedCourseId: course.id,
+            selectedNoteId: note.id
+          });
+        }}
+      />
+    );
   }
 
-  return <div className="app-shell">
-    {sidebar && <aside className="sidebar">
-      <div className="brand"><div className="brand-mark">ÜK</div><div><strong>ÜK Notizen</strong><span>{data.settings.name}</span></div></div>
-      <button className="new-note" onClick={() => setCourseModalOpen(true)}><Plus size={17}/> Neuen ÜK erstellen</button>
-      <label className="search"><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Alles durchsuchen…"/></label>
-      <nav className="nav-list">
-        <button className={filter === "favorites" ? "active" : ""} onClick={() => setFilter("favorites")}><Heart size={16}/> Favoriten</button>
-        <button className={filter === "archive" ? "active" : ""} onClick={() => setFilter("archive")}><Archive size={16}/> Archiv</button>
-      </nav>
-      <div className="course-heading"><span>DEINE ÜKS</span><button title="ÜK erstellen" onClick={() => setCourseModalOpen(true)}><Plus size={14}/></button></div>
-      <div className="course-list">
-        {data.courses.map(course => <button key={course.id} className={filter === "course" && course.id === selectedCourse?.id ? "course-card active" : "course-card"} onClick={() => selectCourse(course)}>
-          <span className="course-icon"><Layers3 size={15}/></span>
-          <span><strong>{course.number}</strong><small>{course.title}</small></span>
-          <b>{data.notes.filter(note => note.courseId === course.id && !note.archived).length}</b>
-        </button>)}
-      </div>
-      <div className="note-list">
-        {visible.map(note => <button key={note.id} className={`note-card ${note.id === selected?.id ? "selected" : ""}`} onClick={() => setData(current => ({ ...current, selectedNoteId: note.id, selectedCourseId: note.courseId }))}>
-          <strong>{note.title}</strong><span>{courseLabel(note.courseId)} · {new Date(note.updatedAt).toLocaleDateString("de-CH")}</span><p>{stripHtml(note.content).slice(0, 88) || "Leere Notiz"}</p>
-        </button>)}
-      </div>
-      <button className="settings-link" onClick={() => setSettingsOpen(true)}><SettingsIcon size={16}/> Einstellungen</button>
-    </aside>}
+  return (
+    <div className="app-shell">
+      {sidebar && (
+        <aside className="sidebar">
+          <div className="brand">
+            <div className="brand-mark">ÜK</div>
+            <div><strong>ÜK Notizen</strong><span>{data.settings.name}</span></div>
+          </div>
 
-    <main className="workspace">
-      <header className="topbar">
-        <button className="icon-button" title="Seitenleiste" onClick={() => setSidebar(value => !value)}>{sidebar ? <PanelLeftClose size={19}/> : <PanelLeftOpen size={19}/>}</button>
-        <div className="breadcrumbs"><span>{selectedCourse ? `${selectedCourse.number} · ${selectedCourse.title}` : "ÜK Notizen"}</span>{selected && <><span>/</span><strong>{selected.title}</strong></>}</div>
-        <div className="top-actions">
-          <button className="icon-button" title="Darstellung wechseln" onClick={() => setData(current => ({ ...current, settings: { ...current.settings, theme: current.settings.theme === "light" ? "dark" : "light" } }))}>{data.settings.theme === "light" ? <Moon size={18}/> : <Sun size={18}/>}</button>
-          {selected && <button className="secondary ai-top-btn" title="KI-Assistent öffnen" onClick={() => { setAiOpen(true); setAiText(""); }}><Sparkles size={16} color="var(--accent)"/> <strong>KI-Assistent</strong></button>}
-          {selectedCourse && <button className="secondary" onClick={exportCourse}><Download size={16}/> Ganzen ÜK als Word</button>}
-          {selectedCourse && <button className="primary" onClick={addNote}><FilePlus2 size={16}/> Neue Notiz</button>}
+          <button className="new-note" onClick={() => setCourseModalOpen(true)}>
+            <Plus size={17}/> Neuen ÜK erstellen
+          </button>
+
+          <label className="search">
+            <Search size={16}/>
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Alles durchsuchen…"/>
+          </label>
+          {query.trim() && <div className="search-hint">Schlaue Suche berücksichtigt Themen, Synonyme und ähnliche Begriffe.</div>}
+
+          <nav className="nav-list">
+            <button className={filter === "favorites" ? "active" : ""} onClick={() => setFilter("favorites")}><Heart size={16}/> Favoriten</button>
+            <button className={filter === "archive" ? "active" : ""} onClick={() => setFilter("archive")}><Archive size={16}/> Archiv</button>
+          </nav>
+
+          <div className="course-heading">
+            <span>DEINE ÜKS</span>
+            <button title="ÜK erstellen" onClick={() => setCourseModalOpen(true)}><Plus size={14}/></button>
+          </div>
+
+          <div className="course-list">
+            {data.courses.map(course => (
+              <button
+                key={course.id}
+                className={filter === "course" && course.id === selectedCourse?.id ? "course-card active" : "course-card"}
+                onClick={() => selectCourse(course)}
+              >
+                <span className="course-icon"><Layers3 size={15}/></span>
+                <span><strong>{course.number}</strong><small>{course.title}</small></span>
+                <b>{data.notes.filter(note => note.courseId === course.id && !note.archived).length}</b>
+              </button>
+            ))}
+          </div>
+
+          <div className="note-list">
+            {visible.map(note => (
+              <button
+                key={note.id}
+                className={"note-card " + (note.id === selected?.id ? "selected" : "")}
+                onClick={() => setData(current => ({ ...current, selectedNoteId: note.id, selectedCourseId: note.courseId }))}
+                onContextMenu={event => handleNoteContextMenu(event, note.id)}
+              >
+                <strong>{note.title}</strong>
+                <span>{courseLabel(note.courseId)} · {new Date(note.updatedAt).toLocaleDateString("de-CH")}</span>
+                <p>{stripHtml(note.content).slice(0, 88) || "Leere Notiz"}</p>
+              </button>
+            ))}
+            {!visible.length && <div className="muted search-empty">Keine passende Notiz gefunden.</div>}
+          </div>
+
+          <button className="settings-link" onClick={() => setSettingsOpen(true)}><SettingsIcon size={16}/> Einstellungen</button>
+        </aside>
+      )}
+
+      <main className="workspace">
+        <header className="topbar">
+          <button className="icon-button" title="Seitenleiste" onClick={() => setSidebar(value => !value)}>
+            {sidebar ? <PanelLeftClose size={19}/> : <PanelLeftOpen size={19}/>}
+          </button>
+
+          <div className="breadcrumbs">
+            <span>{selectedCourse ? selectedCourse.number + " · " + selectedCourse.title : "ÜK Notizen"}</span>
+            {selected && <><span>/</span><strong>{selected.title}</strong></>}
+          </div>
+
+          <div className="top-actions">
+            <button className="icon-button" title="Darstellung wechseln" onClick={() => setData(current => ({ ...current, settings: { ...current.settings, theme: current.settings.theme === "light" ? "dark" : "light" } }))}>
+              {data.settings.theme === "light" ? <Moon size={18}/> : <Sun size={18}/>}
+            </button>
+
+            {selected && <button className="secondary ai-top-btn" title="KI-Chat öffnen" onClick={openAi}><Sparkles size={16}/> <strong>KI</strong></button>}
+            {selectedCourse && <button className="secondary" onClick={exportCourse}><Download size={16}/> Ganzen ÜK als Word</button>}
+            {selectedCourse && <button className="secondary" onClick={() => void exportTxt()}><Download size={16}/> TXT</button>}
+            {selectedCourse && <button className="primary" onClick={() => addNote()}><FilePlus2 size={16}/> Neue Notiz</button>}
+          </div>
+        </header>
+
+        {!selected ? (
+          <section className="empty-state">
+            <div>{selectedCourse ? <BookOpen size={34}/> : <Layers3 size={34}/>}</div>
+            <h1>{selectedCourse ? selectedCourse.number + " – " + selectedCourse.title : "Erstelle deinen ersten ÜK"}</h1>
+            <p>{selectedCourse ? "Dieser ÜK ist bereit für deine Notizen." : "Lege zuerst Nummer und Titel fest. Danach sammelst du alle zugehörigen Notizen an einem Ort."}</p>
+            <button className="primary" onClick={selectedCourse ? () => addNote() : () => setCourseModalOpen(true)}>
+              {selectedCourse ? <FilePlus2 size={17}/> : <Plus size={17}/>}
+              {selectedCourse ? "Erste Notiz erstellen" : "ÜK erstellen"}
+            </button>
+          </section>
+        ) : (
+          <section className="editor-wrap">
+            <input className="title-input" value={selected.title} onChange={event => patchNote({ title: event.target.value })} placeholder="Titel"/>
+
+            <div className="meta-row">
+              <label>
+                <FolderOpen size={15}/>
+                <select value={selected.courseId} onChange={event => {
+                  const courseId = event.target.value;
+                  patchNote({ courseId });
+                  setData(current => ({ ...current, selectedCourseId: courseId }));
+                }}>
+                  {data.courses.map(course => <option key={course.id} value={course.id}>{course.number} · {course.title}</option>)}
+                </select>
+              </label>
+              <label>
+                <Tag size={15}/>
+                <input value={selected.tags.join(", ")} onChange={event => patchNote({ tags: event.target.value.split(",").map(tag => tag.trim()).filter(Boolean) })} placeholder="Tags mit Komma trennen"/>
+              </label>
+              <span>Bearbeitet {new Date(selected.updatedAt).toLocaleString("de-CH", { dateStyle: "short", timeStyle: "short" })}</span>
+            </div>
+
+            <div className="toolbar">
+              <button title="Fett" onClick={() => format("bold")}><b>B</b></button>
+              <button title="Kursiv" onClick={() => format("italic")}><i>I</i></button>
+              <button title="Unterstrichen" onClick={() => format("underline")}><u>U</u></button>
+              <span/>
+              <button title="Überschrift" onClick={() => format("formatBlock", "h2")}>H2</button>
+              <button title="Stichpunkte" onClick={() => format("insertUnorderedList")}>• Liste</button>
+              <button title="Nummerierte Liste" onClick={() => format("insertOrderedList")}>1. Liste</button>
+              <button title="Zitat" onClick={() => format("formatBlock", "blockquote")}>❝</button>
+              <button title="Bild einfügen" onClick={insertImage}><ImagePlus size={16}/></button>
+              <button title="Checkliste" onClick={() => {
+                editorRef.current?.focus();
+                document.execCommand("insertHTML", false, "<p>☐ Aufgabe</p><p></p>");
+                patchNote({ content: editorRef.current?.innerHTML ?? "" });
+              }}><ListChecks size={16}/></button>
+
+              <div className="toolbar-spacer"/>
+              <button title="Favorit" onClick={() => patchNote({ favorite: !selected.favorite })}><Heart size={16} fill={selected.favorite ? "currentColor" : "none"}/></button>
+              <button className="toolbar-ai-btn" title="KI-Chat" onClick={openAi}><Sparkles size={15}/> <span>KI</span></button>
+              <button title="Archivieren" onClick={() => patchNote({ archived: !selected.archived })}><Archive size={16}/></button>
+              <button className="danger" title="Löschen" onClick={() => removeNote()}><Trash2 size={16}/></button>
+            </div>
+
+            {slashQuery !== null && (
+              <div className="slash-menu">
+                <div className="slash-title">/ Schnellbefehle</div>
+                {slashCommands
+                  .filter(command => !slashQuery || command.query.includes(slashQuery) || command.name.toLocaleLowerCase("de-CH").includes(slashQuery))
+                  .map(command => (
+                    <button
+                      key={command.query}
+                      onMouseDown={event => {
+                        event.preventDefault();
+                        runSlashCommand(command.query);
+                      }}
+                    >
+                      <strong>/{command.query}</strong><span>{command.hint}</span>
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            <StableEditor
+              note={selected}
+              editorRef={editorRef}
+              syncVersion={editorSyncVersion}
+              onChange={html => patchNote({ content: html })}
+              onInput={updateSlashMenu}
+              onKeyDown={handleEditorKeyDown}
+              onPaste={handleEditorPaste}
+            />
+            <input ref={imageInputRef} className="hidden-input" type="file" accept="image/*" onChange={handleImageSelected}/>
+          </section>
+        )}
+      </main>
+
+      {aiOpen && (
+        <div className="drawer-backdrop" onMouseDown={event => event.target === event.currentTarget && setAiOpen(false)}>
+          <aside className="ai-drawer">
+            <div className="drawer-header">
+              <div><Bot size={20}/><strong>KI-Assistent</strong></div>
+              <button className="icon-button" onClick={() => setAiOpen(false)}><X size={19}/></button>
+            </div>
+
+            <div className="ai-quick-heading">Schnellaktionen</div>
+            <div className="ai-grid">
+              <button onClick={() => void runQuickAi("summary")}>Zusammenfassen</button>
+              <button onClick={() => void runQuickAi("explain")}>Einfach erklären</button>
+              <button onClick={() => void runQuickAi("improve")}>Text verbessern</button>
+              <button onClick={() => void runQuickAi("quiz")}>Lernfragen</button>
+            </div>
+
+            <div className="ai-chat">
+              {chatMessages.map((message, index) => (
+                <div key={index} className={"chat-message " + message.role}>
+                  <span className="chat-role">{message.role === "assistant" ? "KI" : "Du"}</span>
+                  <div>{message.content}</div>
+                </div>
+              ))}
+              {aiLoading && (
+                <div className="chat-message assistant">
+                  <span className="chat-role">KI</span>
+                  <div className="thinking"><Sparkles size={15}/> KI arbeitet…</div>
+                </div>
+              )}
+            </div>
+
+            {aiText && !aiLoading && selectedChatAction !== "improve" && (
+              <div className="ai-output compact"><pre>{aiText}</pre></div>
+            )}
+
+            <div className="ai-compose">
+              <textarea
+                value={chatInput}
+                onChange={event => setChatInput(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendAiChat();
+                  }
+                }}
+                placeholder="z. B. „Erstelle eine Notiz über USB-C, HDMI und DisplayPort“"
+              />
+              <button className="primary" onClick={() => void sendAiChat()} disabled={aiLoading || !chatInput.trim()}><Sparkles size={16}/> Senden</button>
+            </div>
+
+            <div className="ai-chat-hint">
+              Beispiele: „Erstelle einen neuen ÜK“, „Mach eine Notiz über USB-C und HDMI“ oder „Verbessere den Text und ersetze ihn direkt“.
+            </div>
+          </aside>
         </div>
-      </header>
+      )}
 
-      {!selected ? <section className="empty-state">
-        <div>{selectedCourse ? <BookOpen size={34}/> : <Layers3 size={34}/>}</div>
-        <h1>{selectedCourse ? `${selectedCourse.number} – ${selectedCourse.title}` : "Erstelle deinen ersten ÜK"}</h1>
-        <p>{selectedCourse ? "Dieser ÜK ist bereit für deine Notizen." : "Lege zuerst Nummer und Titel fest. Danach sammelst du alle zugehörigen Notizen an einem Ort."}</p>
-        <button className="primary" onClick={selectedCourse ? addNote : () => setCourseModalOpen(true)}>{selectedCourse ? <FilePlus2 size={17}/> : <Plus size={17}/>} {selectedCourse ? "Erste Notiz erstellen" : "ÜK erstellen"}</button>
-      </section> : <section className="editor-wrap">
-        <input className="title-input" value={selected.title} onChange={event => patchNote({ title: event.target.value })} placeholder="Titel"/>
-        <div className="meta-row">
-          <label><FolderOpen size={15}/><select value={selected.courseId} onChange={event => {
-            const courseId = event.target.value;
-            patchNote({ courseId });
-            setData(current => ({ ...current, selectedCourseId: courseId }));
-          }}>{data.courses.map(course => <option key={course.id} value={course.id}>{course.number} · {course.title}</option>)}</select></label>
-          <label><Tag size={15}/><input value={selected.tags.join(", ")} onChange={event => patchNote({ tags: event.target.value.split(",").map(tag => tag.trim()).filter(Boolean) })} placeholder="Tags mit Komma trennen"/></label>
-          <span>Bearbeitet {new Date(selected.updatedAt).toLocaleString("de-CH", { dateStyle: "short", timeStyle: "short" })}</span>
+      {contextMenu && (() => {
+        const menuNote = data.notes.find(note => note.id === contextMenu.noteId);
+        if (!menuNote) return null;
+
+        return (
+          <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={event => event.stopPropagation()}>
+            <button onClick={() => {
+              setData(current => ({ ...current, selectedNoteId: menuNote.id, selectedCourseId: menuNote.courseId }));
+              setContextMenu(null);
+            }}><BookOpen size={15}/> Öffnen</button>
+            <button onClick={() => {
+              setData(current => ({
+                ...current,
+                notes: current.notes.map(note => note.id === menuNote.id
+                  ? { ...note, favorite: !note.favorite, updatedAt: new Date().toISOString() }
+                  : note)
+              }));
+              setContextMenu(null);
+            }}><Heart size={15}/> {menuNote.favorite ? "Favorit entfernen" : "Zu Favoriten"}</button>
+            <button onClick={() => { duplicateNote(menuNote.id); setContextMenu(null); }}><FilePlus2 size={15}/> Duplizieren</button>
+            <button onClick={() => { void exportTxt(data.courses.find(course => course.id === menuNote.courseId)); setContextMenu(null); }}><Download size={15}/> ÜK als TXT exportieren</button>
+            <button onClick={() => {
+              setData(current => ({
+                ...current,
+                notes: current.notes.map(note => note.id === menuNote.id
+                  ? { ...note, archived: !note.archived, updatedAt: new Date().toISOString() }
+                  : note)
+              }));
+              setContextMenu(null);
+            }}><Archive size={15}/> {menuNote.archived ? "Wiederherstellen" : "Archivieren"}</button>
+            <button className="context-danger" onClick={() => { removeNote(menuNote.id); setContextMenu(null); }}><Trash2 size={15}/> Löschen</button>
+          </div>
+        );
+      })()}
+
+      {courseModalOpen && (
+        <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setCourseModalOpen(false)}>
+          <div className="modal">
+            <div className="drawer-header">
+              <strong>Neuen ÜK erstellen</strong>
+              <button className="icon-button" onClick={() => setCourseModalOpen(false)}><X size={19}/></button>
+            </div>
+            <label className="field">ÜK-Nummer<input autoFocus value={courseDraft.number} onChange={event => setCourseDraft({ ...courseDraft, number: event.target.value })} placeholder="z. B. ÜK 187"/></label>
+            <label className="field">ÜK-Titel<input value={courseDraft.title} onChange={event => setCourseDraft({ ...courseDraft, title: event.target.value })} placeholder="z. B. ICT-Arbeitsplatz in Betrieb nehmen"/></label>
+            <button className="primary full" disabled={!courseDraft.title.trim()} onClick={() => addCourse()}><Plus size={16}/> ÜK erstellen</button>
+          </div>
         </div>
-        <div className="toolbar">
-          <button onClick={() => format("bold")}><b>B</b></button><button onClick={() => format("italic")}><i>I</i></button><button onClick={() => format("underline")}><u>U</u></button>
-          <span/><button onClick={() => format("formatBlock", "h2")}>H2</button><button onClick={() => format("insertUnorderedList")}>• Liste</button><button onClick={() => format("insertOrderedList")}>1. Liste</button><button onClick={() => format("formatBlock", "blockquote")}>❝</button>
-          <div className="toolbar-spacer"/>
-          <button title="Favorit" onClick={() => patchNote({ favorite: !selected.favorite })}><Heart size={16} fill={selected.favorite ? "currentColor" : "none"}/></button>
-          <button className="toolbar-ai-btn" title="KI-Assistent" onClick={() => { setAiOpen(true); setAiText(""); }}><Sparkles size={15}/> <span>KI-Assistent</span></button>
-          <button title="Archivieren" onClick={() => patchNote({ archived: !selected.archived })}><Archive size={16}/></button>
-          <button className="danger" title="Löschen" onClick={removeNote}><Trash2 size={16}/></button>
+      )}
+
+      {settingsOpen && (
+        <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setSettingsOpen(false)}>
+          <div className="modal">
+            <div className="drawer-header">
+              <strong>Einstellungen</strong>
+              <button className="icon-button" onClick={() => setSettingsOpen(false)}><X size={19}/></button>
+            </div>
+            <label className="field">Dein Name<input value={data.settings.name} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, name: event.target.value } }))}/></label>
+            <label className="field">Groq API-Key<input type="password" value={data.settings.apiKey} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, apiKey: event.target.value } }))} placeholder="gsk_…"/><small>Wird nur lokal auf deinem Gerät gespeichert.</small></label>
+            <button className="primary full" onClick={() => { setSettingsOpen(false); setToast("Einstellungen gespeichert"); }}>Speichern</button>
+          </div>
         </div>
-        <StableEditor note={selected} editorRef={editorRef} onChange={html => patchNote({ content: html })}/>
-      </section>}
-    </main>
+      )}
 
-    {aiOpen && <div className="drawer-backdrop" onMouseDown={event => event.target === event.currentTarget && setAiOpen(false)}><aside className="ai-drawer">
-      <div className="drawer-header"><div><Bot size={20}/><strong>KI-Assistent</strong></div><button className="icon-button" onClick={() => setAiOpen(false)}><X size={19}/></button></div>
-      <p className="muted">Der Inhalt der aktuellen Notiz wird nur für deine Anfrage an Groq gesendet.</p>
-      <div className="ai-grid"><button onClick={() => runAi("summary")}>Zusammenfassen</button><button onClick={() => runAi("explain")}>Einfach erklären</button><button onClick={() => runAi("improve")}>Text verbessern</button><button onClick={() => runAi("quiz")}>Lernfragen erstellen</button></div>
-      <div className="ai-output">{aiLoading ? <div className="thinking"><Sparkles size={18}/> KI denkt nach…</div> : aiText ? <pre>{aiText}</pre> : <div className="ai-placeholder">Wähle eine Aktion aus.</div>}</div>
-      {aiText && !aiLoading && <button className="secondary full" onClick={() => { navigator.clipboard.writeText(aiText); setToast("KI-Antwort kopiert"); }}><Check size={16}/> Antwort kopieren</button>}
-    </aside></div>}
-
-    {courseModalOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setCourseModalOpen(false)}><div className="modal">
-      <div className="drawer-header"><strong>Neuen ÜK erstellen</strong><button className="icon-button" onClick={() => setCourseModalOpen(false)}><X size={19}/></button></div>
-      <label className="field">ÜK-Nummer<input autoFocus value={courseDraft.number} onChange={event => setCourseDraft({ ...courseDraft, number: event.target.value })} placeholder="z. B. ÜK 187"/></label>
-      <label className="field">ÜK-Titel<input value={courseDraft.title} onChange={event => setCourseDraft({ ...courseDraft, title: event.target.value })} placeholder="z. B. ICT-Arbeitsplatz in Betrieb nehmen"/></label>
-      <button className="primary full" disabled={!courseDraft.number.trim() || !courseDraft.title.trim()} onClick={addCourse}><Plus size={16}/> ÜK erstellen</button>
-    </div></div>}
-
-    {settingsOpen && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setSettingsOpen(false)}><div className="modal">
-      <div className="drawer-header"><strong>Einstellungen</strong><button className="icon-button" onClick={() => setSettingsOpen(false)}><X size={19}/></button></div>
-      <label className="field">Dein Name<input value={data.settings.name} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, name: event.target.value } }))}/></label>
-      <label className="field">Groq API-Key<input type="password" value={data.settings.apiKey} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, apiKey: event.target.value } }))} placeholder="gsk_…"/><small>Wird nur lokal auf deinem Gerät gespeichert.</small></label>
-      <button className="primary full" onClick={() => { setSettingsOpen(false); setToast("Einstellungen gespeichert"); }}>Speichern</button>
-    </div></div>}
-    {toast && <div className="toast"><Check size={16}/>{toast}</div>}
-  </div>;
+      {toast && <div className="toast"><Check size={16}/>{toast}</div>}
+    </div>
+  );
 }
 
-function Onboarding({ setup, setSetup, finish }: { setup: { name: string; apiKey: string }; setSetup: (value: { name: string; apiKey: string }) => void; finish: () => void }) {
+function Onboarding({
+  setup,
+  setSetup,
+  finish
+}: {
+  setup: { name: string; apiKey: string };
+  setSetup: (value: { name: string; apiKey: string }) => void;
+  finish: () => void;
+}) {
   const [step, setStep] = useState(0);
-  return <div className="onboarding"><div className="setup-card"><div className="setup-logo">ÜK</div>
-    {step === 0 && <><span className="eyebrow">Willkommen</span><h1>Deine Notizen.<br/>Einfach organisiert.</h1><p>Erstelle deine ÜKs, sammle alle Notizen und exportiere am Ende ein vollständiges Word-Dokument.</p><button className="primary full" onClick={() => setStep(1)}>Einrichten <ChevronDown size={17}/></button></>}
-    {step === 1 && <><span className="eyebrow">Schritt 1 von 2</span><h1>Wie heisst du?</h1><p>Dein Name erscheint auch in exportierten ÜK-Dokumenten.</p><label className="field">Name<input autoFocus value={setup.name} onChange={event => setSetup({ ...setup, name: event.target.value })} placeholder="Dein Name"/></label><button className="primary full" disabled={!setup.name.trim()} onClick={() => setStep(2)}>Weiter</button></>}
-    {step === 2 && <><span className="eyebrow">Schritt 2 von 2</span><h1>KI verbinden</h1><p>Füge deinen Groq API-Key ein. Du kannst ihn später ändern.</p><label className="field">Groq API-Key<input autoFocus type="password" value={setup.apiKey} onChange={event => setSetup({ ...setup, apiKey: event.target.value })} placeholder="gsk_…"/><small>Der Schlüssel bleibt lokal auf deinem Gerät.</small></label><button className="primary full" onClick={finish}>App starten <Check size={17}/></button><button className="text-button" onClick={finish}>Ohne KI fortfahren</button></>}
-  </div><div className="setup-footer">Offline nutzbar · Keine Anmeldung · Deine Daten bleiben bei dir</div></div>;
+
+  return (
+    <div className="onboarding">
+      <div className="setup-card">
+        <div className="setup-logo">ÜK</div>
+
+        {step === 0 && <>
+          <span className="eyebrow">Willkommen</span>
+          <h1>Deine Notizen.<br/>Einfach organisiert.</h1>
+          <p>Erstelle deine ÜKs, sammle alle Notizen und exportiere am Ende ein vollständiges Word-Dokument.</p>
+          <button className="primary full" onClick={() => setStep(1)}>Einrichten <ChevronDown size={17}/></button>
+        </>}
+
+        {step === 1 && <>
+          <span className="eyebrow">Schritt 1 von 2</span>
+          <h1>Wie heisst du?</h1>
+          <p>Dein Name erscheint auch in exportierten ÜK-Dokumenten.</p>
+          <label className="field">Name<input autoFocus value={setup.name} onChange={event => setSetup({ ...setup, name: event.target.value })} placeholder="Dein Name"/></label>
+          <button className="primary full" disabled={!setup.name.trim()} onClick={() => setStep(2)}>Weiter</button>
+        </>}
+
+        {step === 2 && <>
+          <span className="eyebrow">Schritt 2 von 2</span>
+          <h1>KI verbinden</h1>
+          <p>Füge deinen Groq API-Key ein. Du kannst ihn später ändern.</p>
+          <label className="field">Groq API-Key<input autoFocus type="password" value={setup.apiKey} onChange={event => setSetup({ ...setup, apiKey: event.target.value })} placeholder="gsk_…"/><small>Der Schlüssel bleibt lokal auf deinem Gerät.</small></label>
+          <button className="primary full" onClick={finish}>App starten <Check size={17}/></button>
+          <button className="text-button" onClick={finish}>Ohne KI fortfahren</button>
+        </>}
+      </div>
+      <div className="setup-footer">Offline nutzbar · Keine Anmeldung · Deine Daten bleiben bei dir</div>
+    </div>
+  );
 }
