@@ -5,7 +5,6 @@ const safeFallbackRelease = "v1.1.13";
 function applyRelease(release) {
   const assets = release.assets || [];
   const windows = assets.find(asset => asset.name === "UEK-Notizen-Windows-x64.zip");
-  const macDmg = assets.find(asset => asset.name === "UEK-Notizen-macOS.dmg");
 
   const winBtn = document.getElementById("windows-download");
   if (winBtn) {
@@ -13,12 +12,13 @@ function applyRelease(release) {
       `https://github.com/${repository}/releases/download/${safeFallbackRelease}/UEK-Notizen-Windows-x64.zip`;
   }
 
+  // macOS always opens the dedicated installation guide first.
+  // The guide page itself contains the direct DMG download.
   const macBtn = document.getElementById("mac-download");
   if (macBtn) {
-    macBtn.href = macDmg?.browser_download_url ||
-      `https://github.com/${repository}/releases/download/${safeFallbackRelease}/UEK-Notizen-macOS.dmg`;
-    macBtn.target = "_blank";
-    macBtn.rel = "noopener";
+    macBtn.href = "macos.html";
+    macBtn.removeAttribute("target");
+    macBtn.removeAttribute("rel");
   }
 
   const statusElem = document.getElementById("release-status");
@@ -46,6 +46,14 @@ async function loadRelease() {
     if (!fallbackResponse.ok) throw new Error("Kein funktionierender Release gefunden");
     applyRelease(await fallbackResponse.json());
   } catch {
+    // Even when GitHub's API is unavailable, the Mac button must stay on the guide page.
+    const macBtn = document.getElementById("mac-download");
+    if (macBtn) {
+      macBtn.href = "macos.html";
+      macBtn.removeAttribute("target");
+      macBtn.removeAttribute("rel");
+    }
+
     const statusElem = document.getElementById("release-status");
     if (statusElem) statusElem.textContent = `Aktuelle Version: ${safeFallbackRelease} (Fallback)`;
   }
