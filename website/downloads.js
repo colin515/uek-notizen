@@ -1,5 +1,5 @@
 const repository = "colin515/uek-notizen";
-const releaseTag = "v1.1.11";
+const releaseTag = "v1.1.13";
 
 fetch(`https://api.github.com/repos/${repository}/releases/tags/${releaseTag}`)
   .then(response => {
