@@ -17,7 +17,7 @@ async function callViaFetch(apiKey: string, systemPrompt: string, userPrompt: st
       Authorization: `Bearer ${apiKey.trim()}`
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       temperature: 0.25,
       messages: [
         { role: "system", content: systemPrompt },
