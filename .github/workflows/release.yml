@@ -44,38 +44,70 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: Compress-Archive -Path "src-tauri/target/release/uek-notizen.exe" -DestinationPath "UEK-Notizen-Windows-x64.zip"
-      - name: Create macOS portable package
+      - name: Create macOS package (ZIP + DMG)
         if: runner.os == 'macOS'
         run: |
           APP_PATH="src-tauri/target/universal-apple-darwin/release/bundle/macos/ÜK Notizen.app"
+
+          # Ad-hoc signieren (kein Apple Developer Zertifikat nötig)
           codesign --force --deep --sign - "$APP_PATH"
           codesign --verify --deep --strict "$APP_PATH"
+
+          # Quarantäne-Attribut direkt entfernen (verhindert "beschädigt"-Meldung)
+          xattr -cr "$APP_PATH"
+
+          # Startskript erstellen – entfernt Quarantäne und öffnet App
           mkdir -p mac-package
           cp -R "$APP_PATH" mac-package/
-          cat > "mac-package/ÜK Notizen starten.command" <<'SCRIPT'
+
+          cat > "mac-package/⚡ ÜK Notizen starten.command" <<'SCRIPT'
           #!/bin/bash
           DIR="$(cd "$(dirname "$0")" && pwd)"
-          xattr -dr com.apple.quarantine "$DIR/ÜK Notizen.app"
+          xattr -cr "$DIR/ÜK Notizen.app"
           open "$DIR/ÜK Notizen.app"
           SCRIPT
-          chmod +x "mac-package/ÜK Notizen starten.command"
-          cat > mac-package/README-MAC.txt <<'TEXT'
-          ÜK Notizen starten
+          chmod +x "mac-package/⚡ ÜK Notizen starten.command"
 
-          Die App ist ad-hoc signiert. Apple verlangt für Downloads aus dem Internet
-          normalerweise eine kostenpflichtige Developer-ID-Signierung und Notarisierung.
+          cat > "mac-package/LIES MICH - Falls App nicht öffnet.txt" <<'TEXT'
+          ╔══════════════════════════════════════════════════╗
+          ║         ÜK Notizen – macOS Anleitung             ║
+          ╚══════════════════════════════════════════════════╝
 
-          Falls ein Doppelklick auf die App blockiert wird:
-          1. Doppelklicke auf „ÜK Notizen starten.command“.
-          2. Falls macOS auch dies blockiert: Rechtsklick darauf → Öffnen → Öffnen.
+          SCHRITT 1: ZIP entpacken (falls noch nicht geschehen)
 
-          Das Startskript entfernt nur das Quarantäne-Attribut dieser App und öffnet sie.
+          SCHRITT 2: App starten
+          → Doppelklick auf „ÜK Notizen.app"
+
+          FALLS macOS „beschädigt" meldet:
+          → Doppelklick auf „⚡ ÜK Notizen starten.command"
+          → Falls auch das blockiert: Rechtsklick → Öffnen → Öffnen klicken
+
+          Das Skript entfernt nur das Quarantäne-Attribut und öffnet die App.
+          Die App selbst ist völlig sicher – sie ist nur nicht mit einem
+          Apple Developer Zertifikat signiert (kostet 99 USD/Jahr).
+
+          ALTERNATIVE (Terminal):
+          xattr -cr ~/Downloads/ÜK\ Notizen.app
           TEXT
+
+          # ZIP erstellen
           ditto -c -k --sequesterRsrc --keepParent mac-package "UEK-Notizen-macOS.zip"
+
+          # DMG erstellen für Drag-and-Drop Installation
+          mkdir -p dmg-staging
+          cp -R "$APP_PATH" dmg-staging/
+          ln -s /Applications dmg-staging/Applications
+          hdiutil create -volname "ÜK Notizen" \
+            -srcfolder dmg-staging \
+            -ov -format UDZO \
+            "UEK-Notizen-macOS.dmg"
+          xattr -cr "UEK-Notizen-macOS.dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: UEK-Notizen-*.zip
+          path: |
+            UEK-Notizen-*.zip
+            UEK-Notizen-*.dmg
           if-no-files-found: error
 
   release:
@@ -91,9 +123,20 @@ jobs:
           tag_name: v1.1.${{ github.run_number }}
           name: ÜK Notizen v1.1.${{ github.run_number }}
           body: |
-            Portable Versionen von ÜK Notizen.
+            ## 📥 Download
 
-            Windows: ZIP entpacken und uek-notizen.exe starten.
-            macOS: ZIP entpacken und ÜK Notizen.app öffnen.
-          files: UEK-Notizen-*.zip
+            | System | Datei | Anleitung |
+            |--------|-------|-----------|
+            | 🪟 Windows | `UEK-Notizen-Windows-x64.zip` | ZIP entpacken → `.exe` starten |
+            | 🍎 macOS | `UEK-Notizen-macOS.dmg` | DMG öffnen → App in Programme ziehen |
+            | 🍎 macOS (ZIP) | `UEK-Notizen-macOS.zip` | ZIP entpacken → `⚡ ÜK Notizen starten.command` doppelklicken |
+
+            > **macOS Hinweis:** Falls die App als „beschädigt" gemeldet wird, das `.command`-Skript im ZIP verwenden oder im Terminal ausführen:
+            > ```
+            > xattr -cr ~/Downloads/ÜK\ Notizen.app
+            > ```
+          files: |
+            UEK-Notizen-*.zip
+            UEK-Notizen-*.dmg
           fail_on_unmatched_files: true
+
