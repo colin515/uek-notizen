@@ -90,9 +90,24 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function inlineMarkdownToHtml(value: string): string {
+  let text = value.replace(/\\\*/g, "*").replace(/\\_/g, "_").replace(/\\~/g, "~").trim();
+  text = escapeHtml(text);
+  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  text = text.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+  text = text.replace(/(?<!_)_([^_\n]+)_(?!_)/g, "<em>$1</em>");
+  const tick = String.fromCharCode(96);
+  text = text.replace(new RegExp(tick + "([^" + tick + "\\n]+)" + tick, "g"), "<code>$1</code>");
+  return text;
+}
+
 function plainTextToHtml(value: string): string {
-  const cleaned = value.replace(/\r/g, "").trim();
+  let cleaned = value.replace(/\r/g, "").trim();
   if (!cleaned) return "<p></p>";
+
+  cleaned = cleaned.replace(/^\s*```(?:markdown|md|text)?\s*/i, "");
+  cleaned = cleaned.replace(/\s*```\s*$/i, "").trim();
 
   const lines = cleaned.split("\n");
   const output: string[] = [];
@@ -101,11 +116,11 @@ function plainTextToHtml(value: string): string {
 
   const flush = () => {
     if (bullets.length) {
-      output.push("<ul>" + bullets.map(item => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>");
+      output.push("<ul>" + bullets.map(item => "<li>" + inlineMarkdownToHtml(item) + "</li>").join("") + "</ul>");
       bullets = [];
     }
     if (numbers.length) {
-      output.push("<ol>" + numbers.map(item => "<li>" + escapeHtml(item) + "</li>").join("") + "</ol>");
+      output.push("<ol>" + numbers.map(item => "<li>" + inlineMarkdownToHtml(item) + "</li>").join("") + "</ol>");
       numbers = [];
     }
   };
@@ -116,22 +131,40 @@ function plainTextToHtml(value: string): string {
       flush();
       continue;
     }
+
+    const heading = line.match(/^#{1,3}\s+(.+)$/);
+    if (heading) {
+      flush();
+      const level = line.startsWith("###") ? 3 : 2;
+      output.push("<h" + level + ">" + inlineMarkdownToHtml(heading[1]) + "</h" + level + ">");
+      continue;
+    }
+
     if (/^[-•*]\s+/.test(line)) {
       if (numbers.length) flush();
       bullets.push(line.replace(/^[-•*]\s+/, ""));
-    } else if (/^\d+[.)]\s+/.test(line)) {
+      continue;
+    }
+
+    if (/^\d+[.)]\s+/.test(line)) {
       if (bullets.length) flush();
       numbers.push(line.replace(/^\d+[.)]\s+/, ""));
-    } else {
-      flush();
-      output.push("<p>" + escapeHtml(line) + "</p>");
+      continue;
     }
+
+    if (/^>\s+/.test(line)) {
+      flush();
+      output.push("<blockquote>" + inlineMarkdownToHtml(line.replace(/^>\s+/, "")) + "</blockquote>");
+      continue;
+    }
+
+    flush();
+    output.push("<p>" + inlineMarkdownToHtml(line) + "</p>");
   }
 
   flush();
   return output.join("") || "<p></p>";
 }
-
 function currentSelectionRange(root: HTMLElement): Range | null {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0 || !root.contains(selection.anchorNode)) return null;
