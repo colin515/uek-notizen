@@ -1,9 +1,8 @@
 const repository = "colin515/uek-notizen";
-const releaseTag = "v1.1.13";
 
-fetch(`https://api.github.com/repos/${repository}/releases/tags/${releaseTag}`)
+fetch(`https://api.github.com/repos/${repository}/releases/latest`)
   .then(response => {
-    if (!response.ok) throw new Error("Release nicht gefunden");
+    if (!response.ok) throw new Error("Kein Release gefunden");
     return response.json();
   })
   .then(release => {
@@ -11,23 +10,23 @@ fetch(`https://api.github.com/repos/${repository}/releases/tags/${releaseTag}`)
     const windows = assets.find(asset => asset.name === "UEK-Notizen-Windows-x64.zip");
     const macDmg = assets.find(asset => asset.name === "UEK-Notizen-macOS.dmg");
 
-    if (windows) {
-      const winBtn = document.getElementById("windows-download");
-      if (winBtn) winBtn.href = windows.browser_download_url;
+    const winBtn = document.getElementById("windows-download");
+    if (winBtn) {
+      winBtn.href = windows?.browser_download_url ||
+        `https://github.com/${repository}/releases/latest/download/UEK-Notizen-Windows-x64.zip`;
     }
 
-    if (macDmg) {
-      const macBtn = document.getElementById("mac-download");
-      if (macBtn) {
-        macBtn.href = macDmg.browser_download_url;
-        macBtn.target = "_blank";
-        macBtn.rel = "noopener";
-      }
+    const macBtn = document.getElementById("mac-download");
+    if (macBtn) {
+      macBtn.href = macDmg?.browser_download_url ||
+        `https://github.com/${repository}/releases/latest/download/UEK-Notizen-macOS.dmg`;
+      macBtn.target = "_blank";
+      macBtn.rel = "noopener";
     }
 
     const statusElem = document.getElementById("release-status");
     if (statusElem) statusElem.textContent = `Aktuelle Version: ${release.tag_name}`;
   })
   .catch(() => {
-    // Direkter Windows-Fallback bleibt im HTML aktiv.
+    // Die direkten latest-download Links bleiben als Fallback aktiv.
   });
