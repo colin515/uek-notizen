@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 type AiAction = "summary" | "explain" | "improve" | "quiz";
 
-const GROQ_MODEL = "openai/gpt-oss-20b";
+const GROQ_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"] as const;
 
 const prompts: Record<AiAction, string> = {
   summary: "Fasse die folgende ÜK-Notiz klar und kompakt auf Deutsch zusammen. Nutze kurze Abschnitte und Stichpunkte.",
@@ -12,31 +12,51 @@ const prompts: Record<AiAction, string> = {
 };
 
 async function callViaFetch(apiKey: string, systemPrompt: string, userPrompt: string): Promise<string> {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey.trim()}`
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      temperature: 0.25,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ]
-    })
-  });
+  let lastError = "Verbindung fehlgeschlagen";
 
-  if (!response.ok) {
-    if (response.status === 401) throw new Error("Der Groq API-Key ist ungültig. Bitte prüfe den Schlüssel in den Einstellungen.");
-    if (response.status === 429) throw new Error("Das Groq-Limit ist gerade erreicht. Bitte versuche es in wenigen Minuten erneut.");
+  for (const model of GROQ_MODELS) {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey.trim()}`
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.25,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ]
+      })
+    });
+
+    if (response.ok) {
+      const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+      return json.choices?.[0]?.message?.content?.trim() || "Keine Antwort von der KI erhalten.";
+    }
+
     const errText = await response.text().catch(() => "");
-    throw new Error(`Groq Fehler (${response.status}): ${errText.slice(0, 160) || "Verbindung fehlgeschlagen"}`);
+    lastError = errText.slice(0, 240) || "Verbindung fehlgeschlagen";
+
+    if (response.status === 401) {
+      throw new Error("Der Groq API-Key ist ungültig. Bitte prüfe den Schlüssel in den Einstellungen.");
+    }
+
+    if (response.status === 429) {
+      throw new Error("Das Groq-Limit ist gerade erreicht. Bitte versuche es später erneut.");
+    }
+
+    const permissionBlocked =
+      response.status === 403 &&
+      /model_permission_blocked|blocked at the (organization|project) level|model.*blocked/i.test(errText);
+
+    if (!permissionBlocked || model === GROQ_MODELS[GROQ_MODELS.length - 1]) {
+      throw new Error(`Groq Fehler (${response.status}): ${lastError}`);
+    }
   }
 
-  const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-  return json.choices?.[0]?.message?.content?.trim() || "Keine Antwort von der KI erhalten.";
+  throw new Error(`Groq Fehler: ${lastError}`);
 }
 
 export async function askGroq(apiKey: string, action: AiAction, html: string): Promise<string> {

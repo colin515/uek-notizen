@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-const GROQ_MODEL: &str = "openai/gpt-oss-20b";
+const GROQ_MODELS: [&str; 2] = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"];
 
 #[derive(Serialize)]
 struct GroqMessage<'a> {
@@ -41,45 +41,67 @@ async fn groq_chat(
     }
 
     let client = reqwest::Client::new();
-    let response = client
-        .post("https://api.groq.com/openai/v1/chat/completions")
-        .bearer_auth(api_key.trim())
-        .json(&GroqRequest {
-            model: GROQ_MODEL,
-            temperature: 0.25,
-            messages: vec![
-                GroqMessage { role: "system", content: &system_prompt },
-                GroqMessage { role: "user", content: &user_prompt },
-            ],
-        })
-        .send()
-        .await
-        .map_err(|error| format!("Groq konnte nicht erreicht werden: {error}"))?;
 
-    let status = response.status();
-    if status.as_u16() == 401 {
-        return Err("Der Groq API-Key ist ungültig.".into());
-    }
-    if status.as_u16() == 429 {
-        return Err("Das Groq-Limit ist gerade erreicht. Bitte versuche es später erneut.".into());
-    }
-    if !status.is_success() {
+    for (index, model) in GROQ_MODELS.iter().enumerate() {
+        let response = client
+            .post("https://api.groq.com/openai/v1/chat/completions")
+            .bearer_auth(api_key.trim())
+            .json(&GroqRequest {
+                model,
+                temperature: 0.25,
+                messages: vec![
+                    GroqMessage { role: "system", content: &system_prompt },
+                    GroqMessage { role: "user", content: &user_prompt },
+                ],
+            })
+            .send()
+            .await
+            .map_err(|error| format!("Groq konnte nicht erreicht werden: {error}"))?;
+
+        let status = response.status();
+
+        if status.is_success() {
+            let payload = response
+                .json::<GroqResponse>()
+                .await
+                .map_err(|error| format!("Ungültige Antwort von Groq: {error}"))?;
+
+            return payload
+                .choices
+                .into_iter()
+                .next()
+                .and_then(|choice| choice.message.content)
+                .filter(|content| !content.trim().is_empty())
+                .ok_or_else(|| "Groq hat keine Antwort zurückgegeben.".into());
+        }
+
+        if status.as_u16() == 401 {
+            return Err("Der Groq API-Key ist ungültig.".into());
+        }
+
+        if status.as_u16() == 429 {
+            return Err("Das Groq-Limit ist gerade erreicht. Bitte versuche es später erneut.".into());
+        }
+
         let details = response.text().await.unwrap_or_default();
-        return Err(format!("Groq-Fehler ({status}): {}", details.chars().take(240).collect::<String>()));
+        let permission_blocked =
+            status.as_u16() == 403 &&
+            (details.contains("model_permission_blocked") ||
+             details.contains("blocked at the organization level") ||
+             details.contains("blocked at the project level") ||
+             details.to_ascii_lowercase().contains("model") && details.to_ascii_lowercase().contains("blocked"));
+
+        if permission_blocked && index + 1 < GROQ_MODELS.len() {
+            continue;
+        }
+
+        return Err(format!(
+            "Groq-Fehler ({status}): {}",
+            details.chars().take(240).collect::<String>()
+        ));
     }
 
-    let payload = response
-        .json::<GroqResponse>()
-        .await
-        .map_err(|error| format!("Ungültige Antwort von Groq: {error}"))?;
-
-    payload
-        .choices
-        .into_iter()
-        .next()
-        .and_then(|choice| choice.message.content)
-        .filter(|content| !content.trim().is_empty())
-        .ok_or_else(|| "Groq hat keine Antwort zurückgegeben.".into())
+    Err("Keines der erlaubten Groq-Modelle konnte verwendet werden.".into())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
