@@ -1,5 +1,7 @@
 # ÜK Notizen
 
+🌐 **Website & Download:** https://colin515.github.io/uek-notizen/
+
 Eine ruhige, Notion-inspirierte Desktop-App für Schweizer ÜK-Lernende.
 
 ## Funktionen
