@@ -55,8 +55,12 @@ function profilesFromDegrees(degrees: string[], fallback: ProfileId[]): ProfileI
   if (text.includes("mediamat")) profiles.add("mediamatik");
   if (text.includes("digital") && text.includes("business")) profiles.add("digital-business");
   if (text.includes("ict-fach")) {
-    profiles.add("ict-fachleute-2018");
-    profiles.add("ict-fachleute-2026");
+    if (text.includes("2018")) profiles.add("ict-fachleute-2018");
+    if (text.includes("2026")) profiles.add("ict-fachleute-2026");
+    if (!text.includes("2018") && !text.includes("2026")) {
+      profiles.add("ict-fachleute-2018");
+      profiles.add("ict-fachleute-2026");
+    }
   }
   if (text.includes("betriebsinformat")) profiles.add("betriebsinformatik");
   if (text.includes("informatiker")) {
@@ -68,9 +72,14 @@ function profilesFromDegrees(degrees: string[], fallback: ProfileId[]): ProfileI
     }
   }
   if (text.includes("gebäudeinformat") || text.includes("gebaeudeinformat")) {
-    profiles.add("gebaeudeautomation");
-    profiles.add("gebaeude-kommunikation");
-    profiles.add("gebaeude-planung");
+    if (text.includes("gebäudeautomation") || text.includes("gebaeudeautomation")) profiles.add("gebaeudeautomation");
+    if (text.includes("kommunikation") || text.includes("multimedia")) profiles.add("gebaeude-kommunikation");
+    if (text.includes("planung")) profiles.add("gebaeude-planung");
+    if (!text.includes("gebäudeautomation") && !text.includes("gebaeudeautomation") && !text.includes("kommunikation") && !text.includes("multimedia") && !text.includes("planung")) {
+      profiles.add("gebaeudeautomation");
+      profiles.add("gebaeude-kommunikation");
+      profiles.add("gebaeude-planung");
+    }
   }
 
   return Array.from(profiles);
