@@ -112,6 +112,72 @@ async fn groq_chat(
     Err("Keines der erlaubten Groq-Modelle konnte verwendet werden.".into())
 }
 
+fn clean_module_number(value: &str) -> Result<String, String> {
+    let number: String = value
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .take(8)
+        .collect();
+
+    if number.is_empty() || !number.chars().any(|c| c.is_ascii_digit()) {
+        return Err("Ungültige Modulnummer.".into());
+    }
+
+    Ok(number)
+}
+
+async fn fetch_module_page(url: String) -> Result<Option<String>, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("UEK-Notizen/1.4 (+https://github.com/colin515/uek-notizen)")
+        .build()
+        .map_err(|error| format!("Modulbaukasten-Client konnte nicht gestartet werden: {error}"))?;
+
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|error| format!("Modulbaukasten konnte nicht erreicht werden: {error}"))?;
+
+    if response.status().as_u16() == 404 {
+        return Ok(None);
+    }
+
+    if !response.status().is_success() {
+        return Err(format!("Modulbaukasten-Fehler ({}).", response.status()));
+    }
+
+    response
+        .text()
+        .await
+        .map(Some)
+        .map_err(|error| format!("Moduldaten konnten nicht gelesen werden: {error}"))
+}
+
+#[tauri::command]
+async fn fetch_official_module_html(module_number: String) -> Result<Option<String>, String> {
+    let number = clean_module_number(&module_number)?;
+    fetch_module_page(format!(
+        "https://modulbaukasten.tie-international.com/module/{number}"
+    ))
+    .await
+}
+
+#[tauri::command]
+async fn fetch_official_lbv_html(
+    module_number: String,
+    variant: u8,
+) -> Result<Option<String>, String> {
+    if variant == 0 || variant > 12 {
+        return Err("Ungültige LBV-Variante.".into());
+    }
+
+    let number = clean_module_number(&module_number)?;
+    fetch_module_page(format!(
+        "https://modulbaukasten.tie-international.com/module/{number}/evaluation/{variant}"
+    ))
+    .await
+}
+
 fn safe_folder_name(value: &str) -> String {
     let cleaned: String = value
         .chars()
@@ -158,7 +224,7 @@ async fn export_course_txt(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![groq_chat, export_course_txt])
+        .invoke_handler(tauri::generate_handler![groq_chat, fetch_official_module_html, fetch_official_lbv_html, export_course_txt])
         .run(tauri::generate_context!())
         .expect("error while running ÜK Notizen");
 }

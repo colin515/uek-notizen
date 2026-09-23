@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { BookOpen, Calculator, CheckCircle2, ChevronRight, CircleAlert, FilePlus2, GraduationCap, LibraryBig, Plus, Search, Trash2, X } from "lucide-react";
-import { ICT_PROFILES, NOTE_TEMPLATES, findIctModule, modulesForProfile, normalizeModuleNumber, officialModuleUrl, type IctModule, type ProfileId } from "./moduleCatalog";
-import type { AppData, Course, CourseAssessment, Note } from "./types";
+import { ICT_PROFILES, NOTE_TEMPLATES, UEK_PROFILE_PATHS, findIctModule, modulesForProfile, normalizeModuleNumber, officialModuleUrl, type IctModule, type ProfileId } from "./moduleCatalog";
+import { fetchOfficialModuleBundle } from "./officialModuleData";
+import type { AppData, Course, CourseAssessment } from "./types";
 
 function numberValue(value: string): number | null {
   const parsed = Number(String(value).replace(",", "."));
@@ -36,6 +37,7 @@ function GradePill({ grade, coverage }: { grade: number | null; coverage: number
 }
 
 function ModuleResult({ module }: { module: IctModule }) {
+  const variants = module.assessmentVariants ?? [];
   return (
     <div className="catalog-result-card">
       <div>
@@ -43,9 +45,59 @@ function ModuleResult({ module }: { module: IctModule }) {
         <strong>{module.title}</strong>
         <small>{module.field}{module.version ? " · Version " + module.version : ""}</small>
       </div>
-      <p>{module.summary || "Modul aus dem ICT-Modulbaukasten."}</p>
-      <div className="topic-chips">{module.topics.map(topic => <span key={topic}>{topic}</span>)}</div>
-      <a href={officialModuleUrl(module)} target="_blank" rel="noreferrer">Im offiziellen Modulbaukasten öffnen ↗</a>
+
+      {(module.competence || module.summary) && (
+        <section className="catalog-detail-section">
+          <h3>Kompetenz</h3>
+          <p>{module.competence || module.summary}</p>
+        </section>
+      )}
+
+      {module.object && (
+        <section className="catalog-detail-section">
+          <h3>Objekt</h3>
+          <p>{module.object}</p>
+        </section>
+      )}
+
+      {!!module.actionGoals?.length && (
+        <section className="catalog-detail-section">
+          <h3>Handlungsziele</h3>
+          <ol>{module.actionGoals.map((goal, index) => <li key={index}>{goal}</li>)}</ol>
+        </section>
+      )}
+
+      {!!module.knowledge?.length && (
+        <section className="catalog-detail-section">
+          <h3>Handlungsnotwendige Kenntnisse</h3>
+          <ul>{module.knowledge.map((item, index) => <li key={index}>{item}</li>)}</ul>
+        </section>
+      )}
+
+      {!module.knowledge?.length && (
+        <div className="topic-chips">{module.topics.map(topic => <span key={topic}>{topic}</span>)}</div>
+      )}
+
+      {!!variants.length && (
+        <section className="catalog-detail-section">
+          <h3>Offizielle Leistungsbeurteilung</h3>
+          {variants.map(variant => (
+            <div className="lbv-preview" key={variant.id}>
+              <strong>{variant.title}</strong>
+              {variant.totalDuration && <small>Richtzeit {variant.totalDuration}</small>}
+              {variant.assessments.map(assessment => (
+                <div className="lbv-preview-row" key={assessment.id}>
+                  <span>{assessment.title}</span>
+                  <b>{assessment.weight}%</b>
+                  <small>{assessment.topic}</small>
+                </div>
+              ))}
+            </div>
+          ))}
+        </section>
+      )}
+
+      <a href={module.sourceUrl || officialModuleUrl(module)} target="_blank" rel="noreferrer">Im öffentlichen Modulbaukasten öffnen ↗</a>
     </div>
   );
 }
@@ -62,16 +114,45 @@ export default function ModuleHub({
   setData: Dispatch<SetStateAction<AppData>>;
   onClose: () => void;
   onOpenCourse: (course: Course) => void;
-  onCreateCourseFromModule: (module: IctModule) => void;
+  onCreateCourseFromModule: (module: IctModule) => void | Promise<void>;
   onCreateTemplateNote: (courseId: string, title: string, html: string) => void;
 }) {
   const [tab, setTab] = useState<"catalog" | "grades" | "templates">("catalog");
   const [moduleQuery, setModuleQuery] = useState("");
   const [selectedModule, setSelectedModule] = useState<IctModule | null>(null);
+  const [selectedModuleLoading, setSelectedModuleLoading] = useState(false);
+  const [remoteExact, setRemoteExact] = useState<IctModule | null>(null);
+  const [remoteExactLoading, setRemoteExactLoading] = useState(false);
   const [templateCourseId, setTemplateCourseId] = useState(data.selectedCourseId ?? data.courses[0]?.id ?? "");
   const profileId = data.settings.educationProfileId || "informatik-ae";
 
   const exact = moduleQuery.trim() ? findIctModule(moduleQuery, profileId) : undefined;
+  const normalizedQuery = normalizeModuleNumber(moduleQuery);
+
+  useEffect(() => {
+    setRemoteExact(null);
+    if (!/^\d{2,4}[A-Z]?$/.test(normalizedQuery)) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setRemoteExactLoading(true);
+      void fetchOfficialModuleBundle(normalizedQuery, exact)
+        .then(official => {
+          if (!cancelled && official) setRemoteExact(official);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setRemoteExactLoading(false);
+        });
+    }, 280);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [normalizedQuery, profileId]);
+
+  const resolvedExact = remoteExact ?? exact;
   const modules = useMemo(() => {
     const q = moduleQuery.trim().toLocaleLowerCase("de-CH");
     const ordered = modulesForProfile(profileId);
@@ -85,6 +166,19 @@ export default function ModuleHub({
   }, [moduleQuery, profileId]);
 
   const overall = overallCourseAverage(data.courses);
+
+  const openModule = async (module: IctModule) => {
+    setSelectedModule(module);
+    setSelectedModuleLoading(true);
+    try {
+      const official = await fetchOfficialModuleBundle(module.number, module);
+      if (official) setSelectedModule(official);
+    } catch {
+      // Static catalog data remains visible if the public source cannot be reached.
+    } finally {
+      setSelectedModuleLoading(false);
+    }
+  };
 
   const patchCourse = (courseId: string, patch: Partial<Course>) => {
     setData(current => ({
@@ -112,6 +206,15 @@ export default function ModuleHub({
 
   const removeAssessment = (course: Course, assessmentId: string) => {
     patchCourse(course.id, { assessments: (course.assessments ?? []).filter(item => item.id !== assessmentId) });
+  };
+
+  const selectAssessmentVariant = (course: Course, variantId: string) => {
+    const variant = course.assessmentVariants?.find(item => item.id === variantId);
+    if (!variant) return;
+    patchCourse(course.id, {
+      assessmentVariantId: variant.id,
+      assessments: variant.assessments.map(assessment => ({ ...assessment, grade: null }))
+    });
   };
 
   return (
@@ -149,9 +252,20 @@ export default function ModuleHub({
                   <strong>{ICT_PROFILES.find(profile => profile.id === profileId)?.shortTitle}</strong>
                   <p>{ICT_PROFILES.find(profile => profile.id === profileId)?.description}</p>
                 </div>
+                {UEK_PROFILE_PATHS[profileId as ProfileId] && (
+                  <div className="profile-uek-path">
+                    <strong>{UEK_PROFILE_PATHS[profileId as ProfileId]?.label}</strong>
+                    {UEK_PROFILE_PATHS[profileId as ProfileId]?.years.map(year => (
+                      <div key={year.year}>
+                        <span>{year.year}. Lehrjahr</span>
+                        <div>{year.moduleNumbers.map(number => <b key={number}>M{number}</b>)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="source-note">
                   <BookOpen size={16}/>
-                  <p>Modulnummern, Titel und Lernorientierung basieren auf dem öffentlichen Modulbaukasten von ICT-Berufsbildung Schweiz. Prüfungsaufteilung und Gewichtungen können je ÜK-Anbieter abweichen.</p>
+                  <p>Die App lädt Kompetenz, Objekt, Handlungsziele, Kenntnisse sowie veröffentlichte LBV-Varianten direkt aus dem öffentlichen ICT-Modulbaukasten und speichert sie im ÜK.</p>
                 </div>
               </aside>
 
@@ -161,14 +275,14 @@ export default function ModuleHub({
                   <input autoFocus value={moduleQuery} onChange={event => { setModuleQuery(event.target.value); setSelectedModule(null); }} placeholder="Modulnummer oder Begriff, z. B. 294"/>
                 </label>
 
-                {exact && (
+                {resolvedExact && (
                   <div className="recognized-module">
                     <div>
                       <span>Erkannt</span>
-                      <h2>M{exact.number} · {exact.title}</h2>
-                      <p>{exact.summary || exact.field}</p>
+                      <h2>M{resolvedExact.number} · {resolvedExact.title}</h2>
+                      <p>{resolvedExact.summary || resolvedExact.field}</p>
                     </div>
-                    <button className="primary" onClick={() => onCreateCourseFromModule(exact)}><Plus size={16}/> Als ÜK hinzufügen</button>
+                    <button className="primary" disabled={remoteExactLoading} onClick={() => void onCreateCourseFromModule(resolvedExact)}><Plus size={16}/> {remoteExactLoading ? "Offizielle Daten laden…" : "Komplett als ÜK hinzufügen"}</button>
                   </div>
                 )}
 
@@ -176,7 +290,7 @@ export default function ModuleHub({
                   <>
                     <button className="back-link" onClick={() => setSelectedModule(null)}>← Zur Übersicht</button>
                     <ModuleResult module={selectedModule}/>
-                    <button className="primary" onClick={() => onCreateCourseFromModule(selectedModule)}><Plus size={16}/> Als ÜK hinzufügen</button>
+                    <button className="primary" disabled={selectedModuleLoading} onClick={() => void onCreateCourseFromModule(selectedModule)}><Plus size={16}/> {selectedModuleLoading ? "Offizielle Daten laden…" : "Komplett als ÜK hinzufügen"}</button>
                   </>
                 ) : (
                   <div className="catalog-grid">
@@ -184,7 +298,7 @@ export default function ModuleHub({
                       const preferred = module.profiles.includes(profileId as ProfileId);
                       const exists = data.courses.some(course => normalizeModuleNumber(course.number) === module.number);
                       return (
-                        <button key={module.number + module.title} className={"catalog-module-card " + (preferred ? "profile-match" : "")} onClick={() => setSelectedModule(module)}>
+                        <button key={module.number + module.title} className={"catalog-module-card " + (preferred ? "profile-match" : "")} onClick={() => void openModule(module)}>
                           <span className="module-number">M{module.number}</span>
                           <strong>{module.title}</strong>
                           <small>{module.field}</small>
@@ -220,18 +334,70 @@ export default function ModuleHub({
                         <GradePill grade={result.grade} coverage={result.coverage}/>
                       </header>
 
+                      {!course.isCustom && (course.assessmentVariants?.length ?? 0) > 1 && (
+                        <div className="official-variant-row">
+                          <label>Offizielle LBV
+                            <select value={course.assessmentVariantId ?? course.assessmentVariants?.[0]?.id ?? ""} onChange={event => selectAssessmentVariant(course, event.target.value)}>
+                              {course.assessmentVariants?.map(variant => <option key={variant.id} value={variant.id}>{variant.title}{variant.totalDuration ? " · " + variant.totalDuration : ""}</option>)}
+                            </select>
+                          </label>
+                          <span>Wähle die offizielle Variante, die dein ÜK-Anbieter verwendet.</span>
+                        </div>
+                      )}
+
                       {(course.assessments ?? []).map(assessment => (
-                        <div className="assessment-row" key={assessment.id}>
-                          <input value={assessment.title} onChange={event => patchAssessment(course, assessment.id, { title: event.target.value })} placeholder="Test / Projekt"/>
-                          <input value={assessment.topic} onChange={event => patchAssessment(course, assessment.id, { topic: event.target.value })} placeholder="Was kommt dran?"/>
-                          <label><input type="number" min="0" max="100" step="1" value={assessment.weight} onChange={event => patchAssessment(course, assessment.id, { weight: Math.max(0, numberValue(event.target.value) ?? 0) })}/><span>%</span></label>
+                        <div className={"assessment-row " + (assessment.locked ? "official-assessment" : "")} key={assessment.id}>
+                          <input
+                            value={assessment.title}
+                            readOnly={assessment.locked}
+                            onChange={event => !assessment.locked && patchAssessment(course, assessment.id, { title: event.target.value })}
+                            placeholder="Test / Projekt"
+                          />
+                          <input
+                            value={assessment.topic}
+                            readOnly={assessment.locked}
+                            onChange={event => !assessment.locked && patchAssessment(course, assessment.id, { topic: event.target.value })}
+                            placeholder="Was kommt dran?"
+                            title={assessment.topic}
+                          />
+                          <label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={assessment.weight}
+                              readOnly={assessment.locked}
+                              onChange={event => !assessment.locked && patchAssessment(course, assessment.id, { weight: Math.max(0, numberValue(event.target.value) ?? 0) })}
+                            />
+                            <span>%</span>
+                          </label>
                           <input className="grade-input" type="number" min="1" max="6" step="0.1" value={assessment.grade ?? ""} onChange={event => patchAssessment(course, assessment.id, { grade: event.target.value === "" ? null : Math.min(6, Math.max(1, numberValue(event.target.value) ?? 1)) })} placeholder="Note"/>
-                          <button className="icon-button danger-soft" title="Leistungsbeurteilung löschen" onClick={() => removeAssessment(course, assessment.id)}><Trash2 size={15}/></button>
+                          {assessment.locked
+                            ? <span className="official-lock" title="Offizielle LBV">fix</span>
+                            : <button className="icon-button danger-soft" title="Leistungsbeurteilung löschen" onClick={() => removeAssessment(course, assessment.id)}><Trash2 size={15}/></button>}
+                          {assessment.locked && (assessment.format || assessment.duration || assessment.criteria?.length) && (
+                            <div className="assessment-official-details">
+                              {[assessment.format, assessment.duration].filter(Boolean).join(" · ")}
+                              {assessment.aids ? " · Hilfsmittel: " + assessment.aids : ""}
+                              {!!assessment.criteria?.length && (
+                                <ul>{assessment.criteria.map((criterion, index) => <li key={index}>{criterion.title}{criterion.weight ? " (" + criterion.weight + ")" : ""}</li>)}</ul>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
 
+                      {!course.isCustom && !(course.assessments?.length) && (
+                        <div className="official-assessment-missing">
+                          Für dieses Modul konnte aus der öffentlichen Quelle momentan keine LBV geladen werden.
+                        </div>
+                      )}
+
                       <footer>
-                        <button className="secondary" onClick={() => addAssessment(course)}><Plus size={15}/> Test / Projekt hinzufügen</button>
+                        {course.isCustom
+                          ? <button className="secondary" onClick={() => addAssessment(course)}><Plus size={15}/> Test / Projekt hinzufügen</button>
+                          : <span className="official-lbv-badge"><CheckCircle2 size={14}/> Offizielle LBV · nur Noten eintragen</span>}
                         <span className={Math.abs(weightTotal - 100) < 0.01 ? "weight-ok" : "weight-warning"}>
                           {Math.abs(weightTotal - 100) < 0.01 ? <CheckCircle2 size={14}/> : <CircleAlert size={14}/>}
                           Gewichtung: {weightTotal}%

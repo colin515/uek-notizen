@@ -9,12 +9,33 @@ export interface Settings {
   educationProfileId: string;
 }
 
+export interface CourseAssessmentCriterion {
+  title: string;
+  weight?: string;
+}
+
 export interface CourseAssessment {
   id: string;
   title: string;
   topic: string;
   weight: number;
   grade: number | null;
+  source?: "official" | "custom";
+  locked?: boolean;
+  format?: string;
+  duration?: string;
+  aids?: string;
+  socialForm?: string;
+  criteria?: CourseAssessmentCriterion[];
+}
+
+export interface CourseAssessmentVariant {
+  id: string;
+  title: string;
+  description?: string;
+  totalDuration?: string;
+  sourceUrl?: string;
+  assessments: CourseAssessment[];
 }
 
 export interface Course {
@@ -26,7 +47,16 @@ export interface Course {
   moduleField?: string;
   moduleTopics?: string[];
   moduleSummary?: string;
+  moduleCompetence?: string;
+  moduleObject?: string;
+  moduleActionGoals?: string[];
+  moduleKnowledge?: string[];
+  moduleDegrees?: string[];
+  officialSourceUrl?: string;
+  officialDataLoadedAt?: string;
   isCustom?: boolean;
+  assessmentVariants?: CourseAssessmentVariant[];
+  assessmentVariantId?: string;
   assessments?: CourseAssessment[];
 }
 

@@ -273,3 +273,48 @@ button:active{transform:scale(.98)}
   .assessment-row .icon-button{grid-column:2;justify-self:end}
   .grade-course-card>footer{align-items:flex-start;flex-direction:column}
 }
+
+
+/* 1.4 complete official module data */
+.catalog-detail-section{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.catalog-detail-section h3{margin:0 0 7px;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.catalog-detail-section p{margin:0;color:var(--text);font-size:12px;line-height:1.65}
+.catalog-detail-section ol,.catalog-detail-section ul{margin:8px 0 0;padding-left:20px;color:var(--text);font-size:11px;line-height:1.6}
+.lbv-preview{margin-top:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);overflow:hidden}
+.lbv-preview>strong,.lbv-preview>small{display:block;padding:10px 11px 0}
+.lbv-preview>small{padding-top:3px;padding-bottom:8px;color:var(--muted);font-size:10px}
+.lbv-preview-row{display:grid;grid-template-columns:minmax(130px,.8fr) 64px minmax(0,1.7fr);gap:9px;padding:9px 11px;border-top:1px solid var(--border);align-items:start}
+.lbv-preview-row span{font-size:11px;font-weight:650}.lbv-preview-row b{font-size:11px;color:var(--accent)}.lbv-preview-row small{font-size:10px;color:var(--muted);line-height:1.45}
+
+.official-variant-row{display:flex;align-items:end;justify-content:space-between;gap:14px;padding:10px 12px;background:var(--accent-soft);border-bottom:1px solid var(--border)}
+.official-variant-row label{display:grid;gap:5px;font-size:10px;font-weight:750}
+.official-variant-row select{min-width:240px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);padding:7px 9px;font-size:11px}
+.official-variant-row>span{font-size:10px;color:var(--muted);text-align:right}
+.assessment-row.official-assessment{background:color-mix(in srgb,var(--accent-soft) 18%,var(--surface))}
+.assessment-row.official-assessment input[readonly]{background:color-mix(in srgb,var(--surface) 80%,var(--bg));color:var(--muted);cursor:default}
+.assessment-row.official-assessment .grade-input{background:var(--bg);color:var(--text);cursor:text;border-color:color-mix(in srgb,var(--accent) 35%,var(--border))}
+.official-lock{display:grid;place-items:center;min-height:28px;padding:0 6px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border));border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:9px;font-weight:800;text-transform:uppercase}
+.assessment-official-details{grid-column:1/-1;margin:0 0 2px;padding:8px 10px;border-radius:7px;background:var(--bg);color:var(--muted);font-size:10px;line-height:1.5}
+.assessment-official-details ul{margin:6px 0 0;padding-left:18px}
+.official-lbv-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--accent);font-weight:750}
+.official-assessment-missing{padding:14px;color:var(--muted);font-size:11px;border-bottom:1px solid var(--border)}
+.module-recognition-inline:after{content:"Beim Hinzufügen lädt die App auch Handlungsziele, Kenntnisse und die veröffentlichten LBV-Prüfungselemente.";display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.45}
+
+@media(max-width:760px){
+  .lbv-preview-row{grid-template-columns:1fr 55px}.lbv-preview-row small{grid-column:1/-1}
+  .official-variant-row{align-items:stretch;flex-direction:column}.official-variant-row>span{text-align:left}
+  .official-variant-row select{min-width:0;width:100%}
+}
+
+.current-profile-chip{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface)}
+.current-profile-chip>svg{color:var(--accent);flex:0 0 auto}.current-profile-chip>div{display:grid;gap:2px;min-width:0}
+.current-profile-chip small{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800}
+.current-profile-chip strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.custom-title-field>span{font-size:9px;color:var(--muted);font-weight:500}
+
+.profile-uek-path{margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);display:grid;gap:9px}
+.profile-uek-path>strong{font-size:10px}
+.profile-uek-path>div{display:grid;gap:4px}.profile-uek-path>div>span{font-size:9px;color:var(--muted);font-weight:700}
+.profile-uek-path>div>div{display:flex;flex-wrap:wrap;gap:4px}
+.profile-uek-path b{padding:4px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:9px}
+@media(max-width:760px){.profile-uek-path{display:none}}
