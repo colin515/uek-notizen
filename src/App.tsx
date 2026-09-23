@@ -1511,7 +1511,7 @@ function TutorialOverlay({
       icon: <GraduationCap size={30}/>,
       eyebrow: "2 · Modulbaukasten",
       title: "Modulnummer eingeben – fertig",
-      text: "Wähle deine Ausbildung und gib zum Beispiel 294 ein. Die App erkennt bekannte ICT-Module, erstellt einen passenden Überblick und bietet unter „Module & Noten“ Prüfungen, Gewichtungen und Noten."
+      text: "Wähle deine Ausbildung und gib zum Beispiel 294 ein. Die App lädt Kompetenz, Handlungsziele, Kenntnisse und veröffentlichte LBV-Prüfungen samt Gewichtungen. Danach trägst du bei offiziellen Modulen nur noch deine Noten ein."
     },
     {
       icon: <Zap size={30}/>,
