@@ -157,17 +157,24 @@ export function removeTableRow(table: HTMLTableElement, rowIndex: number): void 
 }
 
 export function addTableColumn(table: HTMLTableElement, afterColumnIndex: number): void {
-  const insertAt = Math.max(0, afterColumnIndex + 1);
+  const currentColumns = table.rows[0]?.cells.length ?? 1;
+  const insertAt = Math.min(currentColumns, Math.max(0, afterColumnIndex + 1));
+  const existingCols = ensureColgroup(table);
+  const referenceWidth = existingCols[Math.max(0, Math.min(afterColumnIndex, existingCols.length - 1))]
+    ?.getBoundingClientRect().width || 120;
+
   Array.from(table.rows).forEach(row => {
     const cell = row.insertCell(Math.min(insertAt, row.cells.length));
     cell.innerHTML = "<p><br></p>";
   });
 
-  const cols = ensureColgroup(table);
-  const newCol = document.createElement("col");
-  newCol.style.width = Math.max(MIN_COLUMN_WIDTH, cols[afterColumnIndex]?.getBoundingClientRect().width || 120) + "px";
   const group = table.querySelector("colgroup");
-  if (group) group.insertBefore(newCol, group.children[insertAt] ?? null);
+  if (group) {
+    const newCol = document.createElement("col");
+    newCol.style.width = Math.max(MIN_COLUMN_WIDTH, referenceWidth) + "px";
+    group.insertBefore(newCol, group.children[insertAt] ?? null);
+  }
+
   table.dataset.columns = String(table.rows[0]?.cells.length ?? 1);
 }
 
