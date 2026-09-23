@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { BookOpen, Calculator, CheckCircle2, ChevronRight, CircleAlert, FilePlus2, GraduationCap, LibraryBig, Plus, Search, Trash2, X } from "lucide-react";
-import { ICT_MODULES, ICT_PROFILES, NOTE_TEMPLATES, findIctModule, modulesForProfile, normalizeModuleNumber, officialModuleUrl, type IctModule } from "./moduleCatalog";
+import { ICT_PROFILES, NOTE_TEMPLATES, findIctModule, modulesForProfile, normalizeModuleNumber, officialModuleUrl, type IctModule, type ProfileId } from "./moduleCatalog";
 import type { AppData, Course, CourseAssessment, Note } from "./types";
 
 function numberValue(value: string): number | null {
@@ -58,7 +59,7 @@ export default function ModuleHub({
   onCreateTemplateNote
 }: {
   data: AppData;
-  setData: React.Dispatch<React.SetStateAction<AppData>>;
+  setData: Dispatch<SetStateAction<AppData>>;
   onClose: () => void;
   onOpenCourse: (course: Course) => void;
   onCreateCourseFromModule: (module: IctModule) => void;
@@ -180,7 +181,7 @@ export default function ModuleHub({
                 ) : (
                   <div className="catalog-grid">
                     {modules.map(module => {
-                      const preferred = module.profiles.includes(profileId as never);
+                      const preferred = module.profiles.includes(profileId as ProfileId);
                       const exists = data.courses.some(course => normalizeModuleNumber(course.number) === module.number);
                       return (
                         <button key={module.number + module.title} className={"catalog-module-card " + (preferred ? "profile-match" : "")} onClick={() => setSelectedModule(module)}>
