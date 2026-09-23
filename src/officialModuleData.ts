@@ -222,6 +222,7 @@ export function parseOfficialLbvHtml(
   const totalIndex = lines.findIndex(line => line.toLocaleLowerCase("de-CH") === "richtzeit total");
   const totalDuration = totalIndex >= 0 ? lines[totalIndex + 1] : undefined;
   const description = blockSection(lines, "Beschreibung", ["Lernorte", "Richtzeit total", "Elemente"]);
+  const learningLocations = unique(section(lines, "Lernorte", ["Richtzeit total", "Elemente"]));
 
   const assessments: CourseAssessment[] = elementStarts.map((entry, listIndex) => {
     const end = elementStarts[listIndex + 1]?.index ?? lines.length;
@@ -259,6 +260,7 @@ export function parseOfficialLbvHtml(
     description,
     totalDuration: cleanText(totalDuration),
     sourceUrl: CATALOG_BASE + encodeURIComponent(number) + "/evaluation/" + variant,
+    learningLocations,
     assessments
   };
 }
