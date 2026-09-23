@@ -820,17 +820,22 @@ export default function App() {
 
       for (const action of result.actions) {
         if (action.type === "create_course") {
-          const catalogModule = findIctModule(action.number ?? "", current.settings.educationProfileId);
+          const rawNumber = action.number ?? "";
+          const normalizedNumber = normalizeModuleNumber(rawNumber);
+          const hasOfficialNumber = /^\d{2,4}[A-Z]?$/.test(normalizedNumber);
+          const catalogModule = findIctModule(normalizedNumber, current.settings.educationProfileId);
+          const officialNumber = catalogModule?.number ?? (hasOfficialNumber ? normalizedNumber : "");
           const course: Course = {
             id: createId(),
-            number: catalogModule ? "M" + catalogModule.number : ((action.number ?? "ÜK").trim() || "ÜK"),
+            number: officialNumber ? "M" + officialNumber : (rawNumber.trim() || "ÜK"),
             title: catalogModule?.title ?? (action.title.trim() || "Neuer ÜK"),
             createdAt: new Date().toISOString(),
-            ...(catalogModule ? {
-              catalogModuleNumber: catalogModule.number,
-              moduleField: catalogModule.field,
-              moduleTopics: catalogModule.topics,
-              moduleSummary: catalogModule.summary,
+            ...(officialNumber ? {
+              catalogModuleNumber: officialNumber,
+              moduleField: catalogModule?.field,
+              moduleTopics: catalogModule?.topics ?? [],
+              moduleSummary: catalogModule?.summary,
+              isCustom: false,
               assessments: []
             } : { isCustom: true, assessments: [] })
           };
