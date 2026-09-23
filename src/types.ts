@@ -53,6 +53,7 @@ export interface Course {
   moduleKnowledge?: string[];
   moduleDegrees?: string[];
   officialSourceUrl?: string;
+  officialDataLoadedAt?: string;
   isCustom?: boolean;
   assessmentVariants?: CourseAssessmentVariant[];
   assessmentVariantId?: string;
