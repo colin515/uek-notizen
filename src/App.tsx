@@ -257,6 +257,35 @@ function insertImageAtSelection(root: HTMLElement, dataUrl: string, alt: string)
   );
 }
 
+function focusInsertedSlashBlock(editor: HTMLElement, command: string): void {
+  const selectors: Record<string, string> = {
+    h1: "h1",
+    h2: "h2",
+    h3: "h3",
+    bullet: "ul li",
+    number: "ol li",
+    check: ".checklist-block p",
+    quote: "blockquote",
+    code: "pre.code-block code",
+    info: ".callout-block p",
+    columns: ".note-columns > div:first-child p"
+  };
+
+  const selector = selectors[command];
+  if (!selector) return;
+  const elements = editor.querySelectorAll<HTMLElement>(selector);
+  const target = elements[elements.length - 1];
+  if (!target) return;
+
+  editor.focus();
+  const range = document.createRange();
+  range.selectNodeContents(target);
+  range.collapse(false);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
 function createNote(courseId: string | null, title = "Unbenannte Notiz", content = "<p></p>"): Note {
   const now = new Date().toISOString();
   return {
@@ -1337,6 +1366,7 @@ export default function App() {
           const code = blocks[blocks.length - 1];
           if (code) highlightCodeElement(code);
         }
+        focusInsertedSlashBlock(editor, command);
         patchNote({ content: editor.innerHTML });
       }
     }
