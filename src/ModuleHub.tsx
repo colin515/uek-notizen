@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { BookOpen, Calculator, CheckCircle2, ChevronRight, CircleAlert, FilePlus2, GraduationCap, LibraryBig, Plus, Search, Trash2, X } from "lucide-react";
 import { ICT_PROFILES, NOTE_TEMPLATES, findIctModule, modulesForProfile, normalizeModuleNumber, officialModuleUrl, type IctModule, type ProfileId } from "./moduleCatalog";
-import type { AppData, Course, CourseAssessment, Note } from "./types";
+import { fetchOfficialModuleBundle } from "./officialModuleData";
+import type { AppData, Course, CourseAssessment } from "./types";
 
 function numberValue(value: string): number | null {
   const parsed = Number(String(value).replace(",", "."));
@@ -113,12 +114,13 @@ export default function ModuleHub({
   setData: Dispatch<SetStateAction<AppData>>;
   onClose: () => void;
   onOpenCourse: (course: Course) => void;
-  onCreateCourseFromModule: (module: IctModule) => void;
+  onCreateCourseFromModule: (module: IctModule) => void | Promise<void>;
   onCreateTemplateNote: (courseId: string, title: string, html: string) => void;
 }) {
   const [tab, setTab] = useState<"catalog" | "grades" | "templates">("catalog");
   const [moduleQuery, setModuleQuery] = useState("");
   const [selectedModule, setSelectedModule] = useState<IctModule | null>(null);
+  const [selectedModuleLoading, setSelectedModuleLoading] = useState(false);
   const [templateCourseId, setTemplateCourseId] = useState(data.selectedCourseId ?? data.courses[0]?.id ?? "");
   const profileId = data.settings.educationProfileId || "informatik-ae";
 
@@ -136,6 +138,19 @@ export default function ModuleHub({
   }, [moduleQuery, profileId]);
 
   const overall = overallCourseAverage(data.courses);
+
+  const openModule = async (module: IctModule) => {
+    setSelectedModule(module);
+    setSelectedModuleLoading(true);
+    try {
+      const official = await fetchOfficialModuleBundle(module.number, module);
+      if (official) setSelectedModule(official);
+    } catch {
+      // Static catalog data remains visible if the public source cannot be reached.
+    } finally {
+      setSelectedModuleLoading(false);
+    }
+  };
 
   const patchCourse = (courseId: string, patch: Partial<Course>) => {
     setData(current => ({
@@ -228,7 +243,7 @@ export default function ModuleHub({
                       <h2>M{exact.number} · {exact.title}</h2>
                       <p>{exact.summary || exact.field}</p>
                     </div>
-                    <button className="primary" onClick={() => onCreateCourseFromModule(exact)}><Plus size={16}/> Als ÜK hinzufügen</button>
+                    <button className="primary" onClick={() => void onCreateCourseFromModule(exact)}><Plus size={16}/> Komplett als ÜK hinzufügen</button>
                   </div>
                 )}
 
@@ -236,7 +251,7 @@ export default function ModuleHub({
                   <>
                     <button className="back-link" onClick={() => setSelectedModule(null)}>← Zur Übersicht</button>
                     <ModuleResult module={selectedModule}/>
-                    <button className="primary" onClick={() => onCreateCourseFromModule(selectedModule)}><Plus size={16}/> Als ÜK hinzufügen</button>
+                    <button className="primary" disabled={selectedModuleLoading} onClick={() => void onCreateCourseFromModule(selectedModule)}><Plus size={16}/> {selectedModuleLoading ? "Offizielle Daten laden…" : "Komplett als ÜK hinzufügen"}</button>
                   </>
                 ) : (
                   <div className="catalog-grid">
@@ -244,7 +259,7 @@ export default function ModuleHub({
                       const preferred = module.profiles.includes(profileId as ProfileId);
                       const exists = data.courses.some(course => normalizeModuleNumber(course.number) === module.number);
                       return (
-                        <button key={module.number + module.title} className={"catalog-module-card " + (preferred ? "profile-match" : "")} onClick={() => setSelectedModule(module)}>
+                        <button key={module.number + module.title} className={"catalog-module-card " + (preferred ? "profile-match" : "")} onClick={() => void openModule(module)}>
                           <span className="module-number">M{module.number}</span>
                           <strong>{module.title}</strong>
                           <small>{module.field}</small>
