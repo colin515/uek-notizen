@@ -131,14 +131,6 @@ jobs:
         with:
           pattern: UEK-Notizen-*
           merge-multiple: true
-      - name: Reset v1.1.13 tag to this build
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f v1.1.13 "$GITHUB_SHA"
-          git push origin "refs/tags/v1.1.13" --force
-
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.app-version.outputs.version }}
@@ -177,18 +169,25 @@ jobs:
           index = Path("website/index.html")
           content = index.read_text()
           content = re.sub(r"\\bAktuelle Version: v\\d+\\.\\d+\\.\\d+", f"Aktuelle Version: v{version}", content)
-          content = re.sub(r"/releases/tag/v\\d+\\.\\d+\\.\\d+", f"/releases/tag/v{version}", content)
+          content = re.sub(r"/releases/download/v\\d+\\.\\d+\\.\\d+/", f"/releases/download/v{version}/", content)
+          content = re.sub(r'downloads\\.js\\?v=[^"]+', f"downloads.js?v={version}", content)
           index.write_text(content)
 
           downloads = Path("website/downloads.js")
           content = downloads.read_text()
-          content = re.sub(r'const releaseTag = "v\\d+\\.\\d+\\.\\d+";', f'const releaseTag = "v{version}";', content)
+          content = re.sub(r'const preferredRelease = "v\\d+\\.\\d+\\.\\d+";', f'const preferredRelease = "v{version}";', content)
+          content = re.sub(r'const safeFallbackRelease = "v\\d+\\.\\d+\\.\\d+";', f'const safeFallbackRelease = "v{version}";', content)
           downloads.write_text(content)
+
+          macos = Path("website/macos.html")
+          content = macos.read_text()
+          content = re.sub(r"v\\d+\\.\\d+\\.\\d+", f"v{version}", content)
+          macos.write_text(content)
           PY
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add website/index.html website/downloads.js
+          git add website/index.html website/downloads.js website/macos.html
           if git diff --cached --quiet; then
             exit 0
           fi
