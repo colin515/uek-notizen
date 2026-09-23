@@ -1,27 +1,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, Heart, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, X } from "lucide-react";
+import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, Heart, HelpCircle, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, Workflow, X, Zap } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { askGroq, askGroqChat, type AiAction, type AiChatResult } from "./ai";
 import { exportCourseDocx } from "./docxExport";
 import { exportCourseTxt } from "./txtExport";
 import { createId, loadData, sampleCourse, sampleNote, saveData } from "./storage";
+import { slashCommands, slashCommandMatches, slashReplacement } from "./editorBlocks";
+import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchartHtml, type FlowchartData } from "./FlowchartEditor";
 import type { AppData, Course, Note } from "./types";
 
-type Filter = "course" | "favorites" | "archive";
+type Filter = "course" | "quick" | "favorites" | "archive";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ContextMenu = { x: number; y: number; noteId: string } | null;
 
-const slashCommands = [
-  { name: "H2", query: "h2", hint: "Überschrift" },
-  { name: "H3", query: "h3", hint: "Kleine Überschrift" },
-  { name: "Stichpunkte", query: "bullet", hint: "Aufzählung" },
-  { name: "Nummerierte Liste", query: "number", hint: "Nummerierung" },
-  { name: "Checkliste", query: "check", hint: "☐ Aufgabe" },
-  { name: "Zitat", query: "quote", hint: "Zitatblock" },
-  { name: "Trennlinie", query: "divider", hint: "Horizontale Linie" },
-  { name: "Bild", query: "bild", hint: "Bild einfügen" }
-];
 
 const SEARCH_GROUPS = [
   ["kabel", "kabels", "usb", "usb-c", "usbc", "hdmi", "displayport", "display", "monitor", "bildschirm", "anschluss", "anschlüsse", "video", "signal", "adapter", "siplay"],
@@ -247,7 +239,7 @@ function insertImageAtSelection(root: HTMLElement, dataUrl: string, alt: string)
   );
 }
 
-function createNote(courseId: string, title = "Unbenannte Notiz", content = "<p></p>"): Note {
+function createNote(courseId: string | null, title = "Unbenannte Notiz", content = "<p></p>"): Note {
   const now = new Date().toISOString();
   return {
     id: createId(),
@@ -269,7 +261,8 @@ function StableEditor({
   onChange,
   onKeyDown,
   onInput,
-  onPaste
+  onPaste,
+  onDoubleClick
 }: {
   note: Note;
   editorRef: React.RefObject<HTMLDivElement | null>;
@@ -278,6 +271,7 @@ function StableEditor({
   onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
   onInput: (event: React.FormEvent<HTMLDivElement>) => void;
   onPaste: (event: React.ClipboardEvent<HTMLDivElement>) => void;
+  onDoubleClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
   useEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = note.content;
@@ -296,6 +290,7 @@ function StableEditor({
       }}
       onKeyDown={onKeyDown}
       onPaste={onPaste}
+      onDoubleClick={onDoubleClick}
     />
   );
 }
@@ -321,6 +316,10 @@ export default function App() {
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [editorSyncVersion, setEditorSyncVersion] = useState(0);
   const [selectedChatAction, setSelectedChatAction] = useState<AiAction | null>(null);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [flowchartDraft, setFlowchartDraft] = useState<FlowchartData | null>(null);
+  const [editingFlowchartId, setEditingFlowchartId] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
@@ -329,6 +328,13 @@ export default function App() {
     saveData(data);
     document.documentElement.dataset.theme = data.settings.theme;
   }, [data]);
+
+  useEffect(() => {
+    if (data.settings.onboarded && !data.settings.tutorialSeen) {
+      setTutorialStep(0);
+      setTutorialOpen(true);
+    }
+  }, [data.settings.onboarded, data.settings.tutorialSeen]);
 
   useEffect(() => {
     if (!toast) return;
@@ -349,7 +355,8 @@ export default function App() {
   const selectedCourse = data.courses.find(course => course.id === data.selectedCourseId) ?? null;
   const selected = data.notes.find(note => note.id === data.selectedNoteId) ?? null;
 
-  const courseLabel = (courseId: string) => {
+  const courseLabel = (courseId: string | null) => {
+    if (!courseId) return "Schnellnotiz";
     const course = data.courses.find(item => item.id === courseId);
     return course ? course.number + " · " + course.title : "Unbekannter ÜK";
   };
@@ -358,6 +365,7 @@ export default function App() {
     return data.notes
       .filter(note => {
         if (filter === "course" && (note.courseId !== data.selectedCourseId || note.archived)) return false;
+        if (filter === "quick" && (note.courseId !== null || note.archived)) return false;
         if (filter === "favorites" && (!note.favorite || note.archived)) return false;
         if (filter === "archive" && !note.archived) return false;
         return true;
@@ -452,6 +460,19 @@ export default function App() {
       selectedCourseId: courseId
     }));
     setFilter("course");
+    return note.id;
+  };
+
+  const addQuickNote = (title = "Schnellnotiz", content = "<p></p>"): string => {
+    const note = createNote(null, title, content);
+    setData(current => ({
+      ...current,
+      notes: [note, ...current.notes],
+      selectedNoteId: note.id,
+      selectedCourseId: null
+    }));
+    setFilter("quick");
+    setToast("Schnellnotiz erstellt");
     return note.id;
   };
 
@@ -568,7 +589,9 @@ export default function App() {
   const buildAiContext = () => {
     const currentCourse = selectedCourse
       ? "Aktueller ÜK: " + selectedCourse.number + " · " + selectedCourse.title
-      : "Kein ÜK ausgewählt";
+      : selected?.courseId === null
+        ? "Aktueller Bereich: Schnellnotizen (ohne ÜK)"
+        : "Kein ÜK ausgewählt";
 
     const currentNote = selected
       ? "Aktuelle Notiz: " + selected.title + "\n" + stripHtml(selected.content).slice(0, 7000)
@@ -582,12 +605,12 @@ export default function App() {
 
     const notes = data.notes
       .filter(note => !note.archived)
-      .slice(0, 30)
+      .slice(0, 18)
       .map(note => ({
         id: note.id,
         courseId: note.courseId,
         title: note.title,
-        content: stripHtml(note.content).slice(0, 1200)
+        content: stripHtml(note.content).slice(0, 700)
       }));
 
     return { currentCourse, currentNote, courses, notes };
@@ -620,13 +643,14 @@ export default function App() {
 
         if (action.type === "create_note") {
           let courseId = action.courseId;
-          if (!courseId || courseId === "current") courseId = selectedCourseId ?? undefined;
-          if (courseId === "newest_created") courseId = createdCourseId ?? selectedCourseId ?? undefined;
-          if (!courseId) courseId = createdCourseId ?? selectedCourseId ?? undefined;
-          if (!courseId) continue;
+          if (courseId === "quick") courseId = null;
+          else if (!courseId || courseId === "current") courseId = selectedCourseId ?? undefined;
+          else if (courseId === "newest_created") courseId = createdCourseId ?? selectedCourseId ?? undefined;
+          if (courseId === undefined) courseId = createdCourseId ?? selectedCourseId ?? undefined;
+          if (courseId === undefined) continue;
 
           const note: Note = {
-            ...createNote(courseId, action.title.trim() || "Neue Notiz", plainTextToHtml(action.content)),
+            ...createNote(courseId, action.title.trim() || (courseId === null ? "Schnellnotiz" : "Neue Notiz"), plainTextToHtml(action.content)),
             tags: Array.isArray(action.tags) ? action.tags.filter(Boolean).slice(0, 10) : []
           };
 
