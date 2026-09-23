@@ -3,7 +3,7 @@ import type { AppData, Course, Note } from "./types";
 const KEY = "uek-notizen-data-v1";
 
 export const emptyData: AppData = {
-  settings: { name: "", apiKey: "", theme: "light", onboarded: false, tutorialSeen: false },
+  settings: { name: "", apiKey: "", theme: "light", onboarded: false, tutorialSeen: false, educationProfileId: "informatik-ae" },
   courses: [],
   notes: [],
   selectedCourseId: null,
@@ -18,7 +18,12 @@ export function sampleCourse(): Course {
   return {
     id: createId(),
     number: "ÜK 187",
-    title: "ICT-Arbeitsplatz mit Betriebssystem in Betrieb nehmen",
+    title: "ICT-Benutzerendgeräte und Arbeitsplatz in Betrieb nehmen",
+    catalogModuleNumber: "187",
+    moduleField: "System Management",
+    moduleTopics: ["Betriebssystem & Applikationen", "Hardware & Peripherie", "Netzwerkzugang", "Security", "Troubleshooting"],
+    moduleSummary: "ICT-Benutzerendgeräte und Arbeitsplätze nach Vorgaben produktiv einrichten, absichern und prüfen.",
+    assessments: [],
     createdAt: new Date().toISOString()
   };
 }
