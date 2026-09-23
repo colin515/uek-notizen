@@ -155,9 +155,9 @@
     <div class="download-banner">
       <div class="download-banner-text">
         <strong>Download für macOS (Apple Silicon M1/M2/M3/M4 & Intel)</strong>
-        <span id="dl-status">Version v1.3.0 · Direkte DMG-Datei</span>
+        <span id="dl-status">Version v1.5.0 · Direkte DMG-Datei</span>
       </div>
-      <a id="guide-dl-btn" class="button primary" href="https://github.com/colin515/uek-notizen/releases/download/v1.3.0/UEK-Notizen-macOS.dmg">
+      <a id="guide-dl-btn" class="button primary" href="https://github.com/colin515/uek-notizen/releases/download/v1.5.0/UEK-Notizen-macOS.dmg">
         DMG herunterladen ↓
       </a>
     </div>
@@ -222,7 +222,7 @@
 
   <script>
     // Aktualisiert den Download-Link automatisch auf den aktuellen ÜK-Notizen-Release
-    fetch('https://api.github.com/repos/colin515/uek-notizen/releases/tags/v1.3.0')
+    fetch('https://api.github.com/repos/colin515/uek-notizen/releases/tags/v1.5.0')
       .then(res => res.json())
       .then(release => {
         const dmg = (release.assets || []).find(a => /\.dmg$/i.test(a.name));
