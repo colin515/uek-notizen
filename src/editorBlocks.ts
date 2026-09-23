@@ -57,19 +57,20 @@ export function createEmptyTableHtml(rows: number, columns: number): string {
 export function slashReplacement(command: string): string | null {
   const today = new Date().toLocaleDateString("de-CH");
 
+  const caret = '<span data-slash-caret="true"></span>';
   const replacements: Record<string, string> = {
-    h1: "<h1><br></h1><p><br></p>",
-    h2: "<h2><br></h2><p><br></p>",
-    h3: "<h3><br></h3><p><br></p>",
-    bullet: "<ul><li><br></li></ul><p><br></p>",
-    number: "<ol><li><br></li></ol><p><br></p>",
-    check: '<div class="checklist-block"><p>☐&nbsp;</p></div><p><br></p>',
-    quote: "<blockquote><br></blockquote><p><br></p>",
-    code: '<pre class="code-block" data-language="auto" spellcheck="false"><code><br></code></pre><p><br></p>',
-    info: '<aside class="callout-block"><p><br></p></aside><p><br></p>',
-    columns: '<div class="note-columns"><div><p><br></p></div><div><p><br></p></div></div><p><br></p>',
-    divider: "<hr /><p><br></p>",
-    date: "<p><strong>" + today + "</strong></p><p><br></p>"
+    h1: "<h1>" + caret + "<br></h1><p><br></p>",
+    h2: "<h2>" + caret + "<br></h2><p><br></p>",
+    h3: "<h3>" + caret + "<br></h3><p><br></p>",
+    bullet: "<ul><li>" + caret + "<br></li></ul><p><br></p>",
+    number: "<ol><li>" + caret + "<br></li></ol><p><br></p>",
+    check: '<div class="checklist-block"><p>☐&nbsp;' + caret + '</p></div><p><br></p>',
+    quote: "<blockquote>" + caret + "<br></blockquote><p><br></p>",
+    code: '<pre class="code-block" data-language="auto" spellcheck="false"><code>' + caret + '<br></code></pre><p><br></p>',
+    info: '<aside class="callout-block"><p>' + caret + '<br></p></aside><p><br></p>',
+    columns: '<div class="note-columns"><div><p>' + caret + '<br></p></div><div><p><br></p></div></div><p><br></p>',
+    divider: "<hr /><p>" + caret + "<br></p>",
+    date: "<p><strong>" + today + "</strong></p><p>" + caret + "<br></p>"
   };
 
   return replacements[command] ?? null;
