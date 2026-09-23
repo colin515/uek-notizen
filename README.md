@@ -25,7 +25,7 @@ npm run tauri dev
 
 ## Veröffentlichung
 
-Ein Tag wie `v1.0.0` startet automatisch die Windows- und macOS-Builds und erstellt ein GitHub Release. Die Download-Seite liest die Release-Dateien automatisch ein.
+Ein erfolgreicher Push auf `main` startet automatisch die Windows- und macOS-Builds und erstellt ein versioniertes GitHub Release. Die Download-Seite wird danach automatisch auf diese Version aktualisiert.
 
 ## Datenschutz
 
