@@ -223,7 +223,7 @@ export function parseOfficialLbvHtml(
     const duration = match[3].replace(",", ".");
 
     const elementDescription = blockSection(
-      ["Beschreibung", ...block],
+      block,
       "Beschreibung",
       ["Hilfsmittel", "Praxisbezug", "Prüfungsform", "Sozialform", "Bewertungskriterien"]
     );
