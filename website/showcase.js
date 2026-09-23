@@ -31,6 +31,23 @@ const moduleExamples = {
   }
 };
 
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+document.addEventListener("pointermove", event => {
+  if (reducedMotion) return;
+  document.documentElement.style.setProperty("--mouse-x", (event.clientX / window.innerWidth * 100).toFixed(2) + "%");
+  document.documentElement.style.setProperty("--mouse-y", (event.clientY / window.innerHeight * 100).toFixed(2) + "%");
+});
+
+document.querySelectorAll("[data-liquid]").forEach(card => {
+  card.addEventListener("pointermove", event => {
+    if (reducedMotion) return;
+    const rect = card.getBoundingClientRect();
+    card.style.setProperty("--local-x", ((event.clientX - rect.left) / Math.max(1, rect.width) * 100).toFixed(2) + "%");
+    card.style.setProperty("--local-y", ((event.clientY - rect.top) / Math.max(1, rect.height) * 100).toFixed(2) + "%");
+  });
+});
+
 const tabButtons = document.querySelectorAll(".demo-tab");
 const panes = document.querySelectorAll(".demo-pane");
 
@@ -49,42 +66,44 @@ let moduleTimer;
 
 function renderModuleDemo() {
   if (!moduleInput || !moduleResult || !moduleTitle || !moduleSummary) return;
+
   const number = moduleInput.value.replace(/[^0-9]/g, "").slice(0, 4);
   moduleInput.value = number;
   moduleResult.classList.add("loading");
   clearTimeout(moduleTimer);
 
-  moduleTimer = setTimeout(() => {
+  moduleTimer = window.setTimeout(() => {
     const found = moduleExamples[number];
-    const top = moduleResult.querySelector(".module-result-top small");
+    const status = moduleResult.querySelector(".module-status small");
     const items = moduleResult.querySelector(".loaded-items");
 
     if (found) {
       moduleTitle.textContent = found.title;
       moduleSummary.textContent = found.summary;
-      if (top) top.textContent = "OFFIZIELLES MODUL ERKANNT";
+      if (status) status.textContent = "OFFIZIELLES MODUL ERKANNT";
       if (items) items.innerHTML = `<span><b>${found.goals}</b> Handlungsziele</span><span><b>✓</b> Lernstoff</span><span><b>100%</b> LBV</span>`;
     } else if (number) {
       moduleTitle.textContent = "Modul " + number;
-      moduleSummary.textContent = "In der echten App werden die offiziellen Daten beim Erstellen direkt aus dem Modulbaukasten geladen.";
-      if (top) top.textContent = "MODULNUMMER BEREIT";
+      moduleSummary.textContent = "In der App werden die öffentlichen Moduldaten beim Erstellen direkt geladen und lokal gespeichert.";
+      if (status) status.textContent = "MODULNUMMER BEREIT";
       if (items) items.innerHTML = "<span><b>↗</b> Modulbaukasten</span><span><b>✓</b> Live laden</span><span><b>↓</b> Lokal speichern</span>";
     } else {
       moduleTitle.textContent = "Modulnummer eingeben";
       moduleSummary.textContent = "Zum Beispiel 294, 295, 106 oder 187.";
-      if (top) top.textContent = "BEREIT";
+      if (status) status.textContent = "BEREIT";
       if (items) items.innerHTML = "<span><b>1</b> Nummer</span><span><b>→</b> Laden</span><span><b>✓</b> Fertig</span>";
     }
+
     moduleResult.classList.remove("loading");
-  }, 260);
+  }, 240);
 }
 
 moduleInput?.addEventListener("input", renderModuleDemo);
 
 const aiResponses = {
-  explain: "CRUD sind die vier Grundaktionen auf Daten: <b>Create</b> erstellen, <b>Read</b> lesen, <b>Update</b> ändern und <b>Delete</b> löschen. Denk an einen Notizzettel: neu schreiben, anschauen, korrigieren, wegwerfen.",
-  summary: "<b>Kurzfassung:</b> REST organisiert Ressourcen über URLs. CRUD beschreibt die vier Datenaktionen Erstellen, Lesen, Ändern und Löschen. HTTP-Methoden bilden diese Aktionen in einer API ab.",
-  quiz: "<b>Prüfungsfrage 1:</b> Welche HTTP-Methode verwendest du typischerweise für ein Update?<br><br><b>Prüfungsfrage 2:</b> Was ist der Unterschied zwischen einer Ressource und einem Endpoint?"
+  explain: "CRUD sind vier Grundaktionen: <b>Create</b>, <b>Read</b>, <b>Update</b> und <b>Delete</b>. Denk an eine Notiz: erstellen, lesen, ändern, löschen.",
+  summary: "<b>Kurzfassung:</b> REST organisiert Ressourcen über URLs. HTTP-Methoden bilden Aktionen auf diesen Ressourcen ab und Statuscodes beschreiben das Ergebnis.",
+  quiz: "<b>Prüfungsfrage 1:</b> Welche HTTP-Methode verwendest du typischerweise für ein Update?<br><br><b>Prüfungsfrage 2:</b> Was ist der Unterschied zwischen Ressource und Endpoint?"
 };
 
 const aiButtons = document.querySelectorAll(".ai-demo-action");
@@ -96,12 +115,13 @@ aiButtons.forEach(button => {
   button.addEventListener("click", () => {
     aiButtons.forEach(item => item.classList.toggle("active", item === button));
     if (!aiBox || !aiText) return;
+
     aiBox.classList.add("typing");
     clearTimeout(aiTimer);
-    aiTimer = setTimeout(() => {
+    aiTimer = window.setTimeout(() => {
       aiText.innerHTML = aiResponses[button.dataset.ai] || aiResponses.explain;
       aiBox.classList.remove("typing");
-    }, 650);
+    }, 560);
   });
 });
 
@@ -113,7 +133,7 @@ const revealObserver = "IntersectionObserver" in window
         window.setTimeout(() => entry.target.classList.add("visible"), delay);
         revealObserver.unobserve(entry.target);
       });
-    }, { threshold: 0.12, rootMargin: "0px 0px -30px 0px" })
+    }, { threshold: 0.11, rootMargin: "0px 0px -35px 0px" })
   : null;
 
 document.querySelectorAll(".reveal").forEach(element => {
@@ -122,16 +142,16 @@ document.querySelectorAll(".reveal").forEach(element => {
 });
 
 const tiltCard = document.querySelector("[data-tilt]");
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 if (tiltCard && !reducedMotion && window.matchMedia("(pointer:fine)").matches) {
   const stage = tiltCard.parentElement;
+
   stage?.addEventListener("pointermove", event => {
     const rect = stage.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width - 0.5;
     const y = (event.clientY - rect.top) / rect.height - 0.5;
-    tiltCard.style.transform = `rotateX(${-y * 3.2}deg) rotateY(${x * 4.2}deg) translateY(-2px)`;
+    tiltCard.style.transform = `rotateX(${-y * 2.5}deg) rotateY(${x * 3.4}deg) translateY(-3px)`;
   });
+
   stage?.addEventListener("pointerleave", () => {
     tiltCard.style.transform = "";
   });
@@ -141,10 +161,10 @@ document.querySelectorAll(".demo-create").forEach(button => {
   button.addEventListener("click", () => {
     const original = button.innerHTML;
     button.innerHTML = "ÜK erstellt <span>✓</span>";
-    button.style.background = "#2f7059";
+    button.style.background = "linear-gradient(145deg,#39a67a,#3d8fcb)";
     window.setTimeout(() => {
       button.innerHTML = original;
       button.style.background = "";
-    }, 1400);
+    }, 1350);
   });
 });
