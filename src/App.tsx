@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, GraduationCap, Heart, HelpCircle, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, Workflow, X, Zap } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { askGroq, askGroqChat, type AiAction, type AiChatResult } from "./ai";
+import { askAi, askAiChat, testAiConnection, type AiAction, type AiChatResult, type AiConnection } from "./ai";
 import { exportCourseDocx } from "./docxExport";
 import { exportCourseTxt } from "./txtExport";
 import { createId, loadData, sampleCourse, sampleNote, saveData } from "./storage";
@@ -11,7 +11,8 @@ import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchar
 import ModuleHub from "./ModuleHub";
 import { ICT_PROFILES, findIctModule, moduleStarterHtml, normalizeModuleNumber, type IctModule } from "./moduleCatalog";
 import { fetchOfficialModuleBundle } from "./officialModuleData";
-import type { AppData, Course, Note } from "./types";
+import { AI_PROVIDERS, aiProviderDefinition, aiTutorialUrl, defaultAiModel } from "./aiProviders";
+import type { AiProvider, AppData, Course, Note } from "./types";
 
 type Filter = "course" | "quick" | "favorites" | "archive";
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -316,7 +317,14 @@ export default function App() {
     { role: "assistant", content: "Ich kann in ÜK Notizen nicht nur antworten, sondern auch ÜKs und Notizen erstellen, Texte verbessern und Inhalte direkt in deinem Dokument ändern. Sag mir einfach, was ich machen soll." }
   ]);
   const [toast, setToast] = useState("");
-  const [setup, setSetup] = useState({ name: data.settings.name, apiKey: data.settings.apiKey, educationProfileId: data.settings.educationProfileId });
+  const [aiTestState, setAiTestState] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [setup, setSetup] = useState({
+    name: data.settings.name,
+    educationProfileId: data.settings.educationProfileId,
+    aiProvider: data.settings.aiProvider,
+    aiModel: data.settings.aiModel,
+    aiKeys: { ...data.settings.aiKeys }
+  });
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [editorSyncVersion, setEditorSyncVersion] = useState(0);
@@ -421,6 +429,12 @@ export default function App() {
   const selected = data.notes.find(note => note.id === data.selectedNoteId) ?? null;
   const quickMode = filter === "quick";
   const recognizedDraftModule = findIctModule(courseDraft.number, data.settings.educationProfileId);
+  const activeAiProvider = aiProviderDefinition(data.settings.aiProvider);
+  const activeAiConnection: AiConnection = {
+    provider: data.settings.aiProvider,
+    model: data.settings.aiModel,
+    apiKey: data.settings.aiKeys[data.settings.aiProvider] ?? ""
+  };
 
   const courseLabel = (courseId: string | null) => {
     if (!courseId) return "Schnellnotiz";
@@ -753,7 +767,7 @@ export default function App() {
     setChatMessages(messages => [...messages, { role: "user", content: labels[action] + " für die aktuelle Notiz" }]);
 
     try {
-      const result = await askGroq(data.settings.apiKey, action, selected.content);
+      const result = await askAi(activeAiConnection, action, selected.content);
 
       if (action === "improve") {
         replaceNoteContent(selected.id, result);
@@ -913,7 +927,7 @@ export default function App() {
     setChatMessages(messages => [...messages, { role: "user", content: message }]);
 
     try {
-      const result = await askGroqChat(data.settings.apiKey, message, buildAiContext());
+      const result = await askAiChat(activeAiConnection, message, buildAiContext());
       const reply = applyAiActions(result);
       setChatMessages(messages => [...messages, { role: "assistant", content: reply }]);
     } catch (error) {
@@ -1090,7 +1104,7 @@ export default function App() {
           const course = sampleCourse();
           const note = sampleNote(course.id);
           setData({
-            settings: { ...data.settings, ...setup, onboarded: true },
+            settings: { ...data.settings, ...setup, apiKey: setup.aiKeys.groq, onboarded: true },
             courses: [course],
             notes: [note],
             selectedCourseId: course.id,
@@ -1300,9 +1314,19 @@ export default function App() {
         <div className="drawer-backdrop" onMouseDown={event => event.target === event.currentTarget && setAiOpen(false)}>
           <aside className="ai-drawer">
             <div className="drawer-header">
-              <div><Bot size={20}/><strong>KI-Assistent</strong></div>
+              <div><Bot size={20}/><strong>KI-Assistent · {activeAiProvider.shortLabel}</strong></div>
               <button className="icon-button" onClick={() => setAiOpen(false)}><X size={19}/></button>
             </div>
+
+            {!activeAiConnection.apiKey.trim() && (
+              <div className="ai-missing-key">
+                <div><HelpCircle size={16}/><span><strong>{activeAiProvider.keyLabel} fehlt</strong><small>Richte {activeAiProvider.shortLabel} einmal ein, danach funktionieren Chat und Schnellaktionen.</small></span></div>
+                <div>
+                  <button className="secondary" onClick={() => window.open(aiTutorialUrl(data.settings.aiProvider), "_blank", "noopener,noreferrer")}>Anleitung öffnen</button>
+                  <button className="secondary" onClick={() => { setAiOpen(false); setSettingsOpen(true); }}>Key eingeben</button>
+                </div>
+              </div>
+            )}
 
             <div className="ai-quick-heading">Schnellaktionen</div>
             <div className="ai-grid">
@@ -1443,8 +1467,85 @@ export default function App() {
               </select>
               <small>Damit werden passende Module im Modulbaukasten zuerst angezeigt.</small>
             </label>
-            <label className="field">Groq API-Key<input type="password" value={data.settings.apiKey} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, apiKey: event.target.value } }))} placeholder="gsk_…"/><small>Wird nur lokal auf deinem Gerät gespeichert.</small></label>
-            <button className="secondary full tutorial-settings-button" onClick={() => { setSettingsOpen(false); setTutorialStep(0); setTutorialOpen(true); }}><HelpCircle size={16}/> Kurzes Tutorial anzeigen</button>
+            <div className="ai-settings-box">
+              <div className="ai-settings-heading">
+                <div><Sparkles size={17}/><strong>KI-Anbieter</strong></div>
+                <span>{activeAiProvider.description}</span>
+              </div>
+              <label className="field">Anbieter
+                <select
+                  value={data.settings.aiProvider}
+                  onChange={event => {
+                    const provider = event.target.value as AiProvider;
+                    setAiTestState("idle");
+                    setData(current => ({
+                      ...current,
+                      settings: {
+                        ...current.settings,
+                        aiProvider: provider,
+                        aiModel: defaultAiModel(provider)
+                      }
+                    }));
+                  }}
+                >
+                  {AI_PROVIDERS.map(provider => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
+                </select>
+              </label>
+              <label className="field">Modell
+                <select
+                  value={data.settings.aiModel}
+                  onChange={event => {
+                    setAiTestState("idle");
+                    setData(current => ({ ...current, settings: { ...current.settings, aiModel: event.target.value } }));
+                  }}
+                >
+                  {activeAiProvider.models.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
+                </select>
+                <small>{activeAiProvider.models.find(model => model.id === data.settings.aiModel)?.description}</small>
+              </label>
+              <label className="field">{activeAiProvider.keyLabel}
+                <input
+                  type="password"
+                  value={data.settings.aiKeys[data.settings.aiProvider] ?? ""}
+                  onChange={event => {
+                    const value = event.target.value;
+                    setAiTestState("idle");
+                    setData(current => ({
+                      ...current,
+                      settings: {
+                        ...current.settings,
+                        apiKey: current.settings.aiProvider === "groq" ? value : current.settings.apiKey,
+                        aiKeys: { ...current.settings.aiKeys, [current.settings.aiProvider]: value }
+                      }
+                    }));
+                  }}
+                  placeholder={activeAiProvider.keyPlaceholder}
+                />
+                <small>Der Key wird lokal auf diesem Gerät gespeichert.</small>
+              </label>
+              <div className="ai-settings-actions">
+                <button
+                  className="secondary"
+                  onClick={() => window.open(aiTutorialUrl(data.settings.aiProvider), "_blank", "noopener,noreferrer")}
+                ><HelpCircle size={15}/> API einrichten</button>
+                <button
+                  className={"secondary ai-test-button " + aiTestState}
+                  disabled={aiTestState === "loading" || !activeAiConnection.apiKey.trim()}
+                  onClick={async () => {
+                    setAiTestState("loading");
+                    try {
+                      await testAiConnection(activeAiConnection);
+                      setAiTestState("ok");
+                      setToast(activeAiProvider.shortLabel + " ist verbunden");
+                    } catch (error) {
+                      setAiTestState("error");
+                      setToast(error instanceof Error ? error.message : String(error));
+                    }
+                  }}
+                >{aiTestState === "loading" ? "Teste…" : aiTestState === "ok" ? "Verbunden ✓" : aiTestState === "error" ? "Erneut testen" : "Verbindung testen"}</button>
+              </div>
+            </div>
+            <button className="secondary full tutorial-settings-button" onClick={() => { setSettingsOpen(false); setTutorialStep(0); setTutorialOpen(true); }}><HelpCircle size={16}/> App-Tutorial anzeigen</button>
             <button className="primary full" onClick={() => { setSettingsOpen(false); setToast("Einstellungen gespeichert"); }}>Speichern</button>
           </div>
         </div>
@@ -1529,7 +1630,7 @@ function TutorialOverlay({
       icon: <Sparkles size={30}/>,
       eyebrow: "5 · KI",
       title: "Die KI kann direkt mitarbeiten",
-      text: "Sie kann erklären, zusammenfassen, Texte verbessern sowie ÜKs und Notizen anlegen. Du kannst auch ausdrücklich eine Schnellnotiz erstellen lassen."
+      text: "Wähle GroqCloud, OpenAI oder Google Gemini. Die KI kann erklären, zusammenfassen, Texte verbessern sowie ÜKs und Notizen direkt anlegen."
     }
   ];
 
@@ -1573,11 +1674,31 @@ function Onboarding({
   setSetup,
   finish
 }: {
-  setup: { name: string; apiKey: string; educationProfileId: string };
-  setSetup: (value: { name: string; apiKey: string; educationProfileId: string }) => void;
+  setup: {
+    name: string;
+    educationProfileId: string;
+    aiProvider: AiProvider;
+    aiModel: string;
+    aiKeys: Record<AiProvider, string>;
+  };
+  setSetup: (value: {
+    name: string;
+    educationProfileId: string;
+    aiProvider: AiProvider;
+    aiModel: string;
+    aiKeys: Record<AiProvider, string>;
+  }) => void;
   finish: () => void;
 }) {
   const [step, setStep] = useState(0);
+  const [connectionState, setConnectionState] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [connectionMessage, setConnectionMessage] = useState("");
+  const provider = aiProviderDefinition(setup.aiProvider);
+  const connection: AiConnection = {
+    provider: setup.aiProvider,
+    model: setup.aiModel,
+    apiKey: setup.aiKeys[setup.aiProvider] ?? ""
+  };
 
   return (
     <div className="onboarding">
@@ -1614,8 +1735,78 @@ function Onboarding({
         {step === 3 && <>
           <span className="eyebrow">Schritt 3 von 3</span>
           <h1>KI verbinden</h1>
-          <p>Füge deinen Groq API-Key ein. Du kannst ihn später ändern.</p>
-          <label className="field">Groq API-Key<input autoFocus type="password" value={setup.apiKey} onChange={event => setSetup({ ...setup, apiKey: event.target.value })} placeholder="gsk_…"/><small>Der Schlüssel bleibt lokal auf deinem Gerät.</small></label>
+          <p>Wähle den Anbieter, den du verwenden möchtest. Die App unterstützt GroqCloud, OpenAI und Google Gemini.</p>
+
+          <div className="provider-cards">
+            {AI_PROVIDERS.map(item => (
+              <button
+                key={item.id}
+                className={"provider-card " + (setup.aiProvider === item.id ? "active" : "")}
+                onClick={() => {
+                  setConnectionState("idle");
+                  setConnectionMessage("");
+                  setSetup({ ...setup, aiProvider: item.id, aiModel: defaultAiModel(item.id) });
+                }}
+              >
+                <span>{item.shortLabel.slice(0, 1)}</span>
+                <div><strong>{item.label}</strong><small>{item.description}</small></div>
+                {setup.aiProvider === item.id && <Check size={15}/>}
+              </button>
+            ))}
+          </div>
+
+          <label className="field">Modell
+            <select
+              value={setup.aiModel}
+              onChange={event => {
+                setConnectionState("idle");
+                setSetup({ ...setup, aiModel: event.target.value });
+              }}
+            >
+              {provider.models.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
+            </select>
+            <small>{provider.models.find(model => model.id === setup.aiModel)?.description}</small>
+          </label>
+
+          <label className="field">{provider.keyLabel}
+            <input
+              autoFocus
+              type="password"
+              value={setup.aiKeys[setup.aiProvider] ?? ""}
+              onChange={event => {
+                setConnectionState("idle");
+                setConnectionMessage("");
+                setSetup({ ...setup, aiKeys: { ...setup.aiKeys, [setup.aiProvider]: event.target.value } });
+              }}
+              placeholder={provider.keyPlaceholder}
+            />
+            <small>Der Schlüssel bleibt lokal auf deinem Gerät.</small>
+          </label>
+
+          <button
+            className="secondary full ai-tutorial-link"
+            onClick={() => window.open(aiTutorialUrl(setup.aiProvider), "_blank", "noopener,noreferrer")}
+          ><HelpCircle size={16}/> {provider.shortLabel} Schritt für Schritt einrichten</button>
+
+          <button
+            className={"secondary full ai-test-button " + connectionState}
+            disabled={connectionState === "loading" || !connection.apiKey.trim()}
+            onClick={async () => {
+              setConnectionState("loading");
+              setConnectionMessage("");
+              try {
+                await testAiConnection(connection);
+                setConnectionState("ok");
+                setConnectionMessage("Verbindung erfolgreich.");
+              } catch (error) {
+                setConnectionState("error");
+                setConnectionMessage(error instanceof Error ? error.message : String(error));
+              }
+            }}
+          >{connectionState === "loading" ? "Verbindung wird getestet…" : connectionState === "ok" ? "Verbindung erfolgreich ✓" : connectionState === "error" ? "Verbindung erneut testen" : "Verbindung testen"}</button>
+
+          {connectionMessage && <div className={"ai-connection-message " + connectionState}>{connectionMessage}</div>}
+
           <button className="primary full" onClick={finish}>App starten <Check size={17}/></button>
           <button className="text-button" onClick={finish}>Ohne KI fortfahren</button>
         </>}

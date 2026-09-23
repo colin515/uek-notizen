@@ -1,8 +1,13 @@
 export type Theme = "light" | "dark";
+export type AiProvider = "groq" | "openai" | "gemini";
 
 export interface Settings {
   name: string;
+  /** Legacy Groq key kept for migration from older versions. */
   apiKey: string;
+  aiProvider: AiProvider;
+  aiModel: string;
+  aiKeys: Record<AiProvider, string>;
   theme: Theme;
   onboarded: boolean;
   tutorialSeen: boolean;

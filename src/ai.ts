@@ -1,5 +1,6 @@
-
 import { invoke } from "@tauri-apps/api/core";
+import { aiProviderDefinition } from "./aiProviders";
+import type { AiProvider } from "./types";
 
 export type AiAction = "summary" | "explain" | "improve" | "quiz";
 
@@ -14,7 +15,11 @@ export type AiChatResult = {
   actions: AiChatAction[];
 };
 
-const GROQ_MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"] as const;
+export type AiConnection = {
+  provider: AiProvider;
+  model: string;
+  apiKey: string;
+};
 
 const prompts: Record<AiAction, string> = {
   summary: "Fasse die folgende ÜK-Notiz klar und kompakt auf Deutsch zusammen. Nutze kurze Abschnitte und Stichpunkte.",
@@ -23,87 +28,110 @@ const prompts: Record<AiAction, string> = {
   quiz: "Erstelle aus der folgenden ÜK-Notiz fünf Lernfragen mit den Antworten darunter. Antworte auf Deutsch."
 };
 
-async function callViaFetch(apiKey: string, systemPrompt: string, userPrompt: string): Promise<string> {
-  let lastError = "Verbindung fehlgeschlagen";
-
-  for (const model of GROQ_MODELS) {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + apiKey.trim()
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.25,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ]
-      })
-    });
-
-    if (response.ok) {
-      const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-      return json.choices?.[0]?.message?.content?.trim() || "Keine Antwort von der KI erhalten.";
-    }
-
-    const errText = await response.text().catch(() => "");
-    lastError = errText.slice(0, 320) || "Verbindung fehlgeschlagen";
-
-    if (response.status === 401) {
-      throw new Error("Der Groq API-Key ist ungültig. Bitte prüfe den Schlüssel in den Einstellungen.");
-    }
-
-    if (response.status === 429) {
-      throw new Error("Das Groq-Limit ist gerade erreicht. Bitte versuche es später erneut.");
-    }
-
-    const permissionBlocked =
-      response.status === 403 &&
-      /model_permission_blocked|blocked at the (organization|project) level|model.*blocked/i.test(errText);
-
-    if (!permissionBlocked || model === GROQ_MODELS[GROQ_MODELS.length - 1]) {
-      throw new Error("Groq Fehler (" + response.status + "): " + lastError);
-    }
-  }
-
-  throw new Error("Groq Fehler: " + lastError);
+function providerEndpoint(provider: AiProvider): string {
+  if (provider === "openai") return "https://api.openai.com/v1/chat/completions";
+  if (provider === "gemini") return "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+  return "https://api.groq.com/openai/v1/chat/completions";
 }
 
-async function callAi(apiKey: string, systemPrompt: string, userPrompt: string): Promise<string> {
-  if (!apiKey.trim()) throw new Error("Bitte trage zuerst deinen Groq API-Key in den Einstellungen ein.");
+function providerError(provider: AiProvider, status: number, details: string): Error {
+  const label = aiProviderDefinition(provider).shortLabel;
+  if (status === 401 || status === 403) {
+    return new Error(label + ": API-Key ungültig oder ohne Berechtigung. Prüfe Key, Projekt und Modell.");
+  }
+  if (status === 429) {
+    return new Error(label + ": Limit oder verfügbares Guthaben erreicht. Prüfe Kontingent und Abrechnung.");
+  }
+  return new Error(label + " Fehler (" + status + "): " + (details.slice(0, 320) || "Unbekannter Fehler"));
+}
+
+async function callViaFetch(
+  connection: AiConnection,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  const response = await fetch(providerEndpoint(connection.provider), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + connection.apiKey.trim()
+    },
+    body: JSON.stringify({
+      model: connection.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    throw providerError(connection.provider, response.status, details);
+  }
+
+  const json = await response.json() as {
+    choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }>;
+  };
+  const content = json.choices?.[0]?.message?.content;
+
+  if (typeof content === "string" && content.trim()) return content.trim();
+  if (Array.isArray(content)) {
+    const joined = content.map(item => item.text ?? "").join("").trim();
+    if (joined) return joined;
+  }
+  throw new Error(aiProviderDefinition(connection.provider).shortLabel + " hat keine Textantwort geliefert.");
+}
+
+async function callAi(
+  connection: AiConnection,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  const provider = aiProviderDefinition(connection.provider);
+  if (!connection.apiKey.trim()) {
+    throw new Error("Bitte trage zuerst deinen " + provider.keyLabel + " in den Einstellungen ein.");
+  }
+  if (!connection.model.trim()) {
+    throw new Error("Bitte wähle zuerst ein " + provider.shortLabel + "-Modell aus.");
+  }
 
   if ("__TAURI_INTERNALS__" in window) {
-    try {
-      return await invoke<string>("groq_chat", {
-        apiKey: apiKey.trim(),
-        systemPrompt,
-        userPrompt
-      });
-    } catch (rustErr) {
-      console.warn("Tauri invoke groq_chat fehlgeschlagen, versuche direkten HTTPS Fetch Fallback:", rustErr);
-      return await callViaFetch(apiKey, systemPrompt, userPrompt);
-    }
+    return await invoke<string>("ai_chat", {
+      provider: connection.provider,
+      apiKey: connection.apiKey.trim(),
+      model: connection.model,
+      systemPrompt,
+      userPrompt
+    });
   }
 
-  return await callViaFetch(apiKey, systemPrompt, userPrompt);
+  return callViaFetch(connection, systemPrompt, userPrompt);
 }
 
-export async function askGroq(apiKey: string, action: AiAction, html: string): Promise<string> {
+export async function testAiConnection(connection: AiConnection): Promise<string> {
+  const reply = await callAi(
+    connection,
+    "Du bist ein Verbindungstest. Antworte kurz und ohne Markdown.",
+    "Antworte exakt mit: Verbindung erfolgreich"
+  );
+  return reply;
+}
+
+export async function askAi(connection: AiConnection, action: AiAction, html: string): Promise<string> {
   const text = new DOMParser().parseFromString(html, "text/html").body.textContent?.trim() ?? "";
   if (!text) throw new Error("Die Notiz ist leer. Schreibe zuerst etwas Inhalt in deine Notiz.");
 
   const systemPrompt = "Du bist ein präziser Lernassistent für Schweizer ÜK-Lernende. Antworte auf Deutsch, strukturiert, knapp und fachlich korrekt. Erfinde keine Fakten und behalte wichtige technische Details bei.";
-  return callAi(apiKey, systemPrompt, prompts[action] + "\n\n" + text);
+  return callAi(connection, systemPrompt, prompts[action] + "\n\n" + text);
 }
 
 function parseChatJson(raw: string): AiChatResult {
   const cleaned = raw
     .trim()
-    .replace(/^\\`\\`\\`json\\s*/i, "")
-    .replace(/^\\`\\`\\`\\s*/i, "")
-    .replace(/\\s*\\`\\`\\`$/i, "");
+    .replace(/^\`\`\`json\s*/i, "")
+    .replace(/^\`\`\`\s*/i, "")
+    .replace(/\s*\`\`\`$/i, "");
 
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
@@ -126,8 +154,8 @@ function parseChatJson(raw: string): AiChatResult {
   };
 }
 
-export async function askGroqChat(
-  apiKey: string,
+export async function askAiChat(
+  connection: AiConnection,
   message: string,
   context: {
     currentCourse: string;
@@ -175,7 +203,7 @@ export async function askGroqChat(
     message
   ].join("\n");
 
-  const raw = await callAi(apiKey, systemPrompt, message);
+  const raw = await callAi(connection, systemPrompt, message);
   try {
     return parseChatJson(raw);
   } catch {
