@@ -1252,6 +1252,78 @@ export default function App() {
   );
 }
 
+
+function TutorialOverlay({
+  step,
+  setStep,
+  onClose
+}: {
+  step: number;
+  setStep: (value: number) => void;
+  onClose: () => void;
+}) {
+  const slides = [
+    {
+      icon: <Layers3 size={30}/>,
+      eyebrow: "1 · ÜKs",
+      title: "Alles pro ÜK gesammelt",
+      text: "Erstelle links einen ÜK und darin beliebig viele Notizen. Am Ende exportierst du den ganzen ÜK als Word-Dokument."
+    },
+    {
+      icon: <Zap size={30}/>,
+      eyebrow: "2 · Schnellnotizen",
+      title: "Nicht alles braucht einen ÜK",
+      text: "Mit Schnellnotizen hältst du spontane Gedanken, Aufgaben oder Infos fest. Später kannst du sie über die Auswahl oben einem ÜK zuordnen."
+    },
+    {
+      icon: <Workflow size={30}/>,
+      eyebrow: "3 · Slash-Menü",
+      title: "Tippe / im Editor",
+      text: "Mit / fügst du Tabellen, Checklisten, Infoboxen, Code, Spalten, Bilder und Flowcharts ein. Flowcharts lassen sich per Drag & Drop bearbeiten und verbinden."
+    },
+    {
+      icon: <Sparkles size={30}/>,
+      eyebrow: "4 · KI",
+      title: "Die KI kann direkt mitarbeiten",
+      text: "Sie kann erklären, zusammenfassen, Texte verbessern sowie ÜKs und Notizen anlegen. Du kannst auch ausdrücklich eine Schnellnotiz erstellen lassen."
+    }
+  ];
+
+  const current = slides[Math.min(step, slides.length - 1)];
+
+  return (
+    <div className="modal-backdrop tutorial-backdrop">
+      <div className="tutorial-card">
+        <div className="tutorial-top">
+          <div className="tutorial-icon">{current.icon}</div>
+          <button className="icon-button" onClick={onClose} title="Tutorial schliessen"><X size={19}/></button>
+        </div>
+        <span className="eyebrow">{current.eyebrow}</span>
+        <h2>{current.title}</h2>
+        <p>{current.text}</p>
+
+        <div className="tutorial-dots">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              className={index === step ? "active" : ""}
+              aria-label={"Tutorial Schritt " + (index + 1)}
+              onClick={() => setStep(index)}
+            />
+          ))}
+        </div>
+
+        <div className="tutorial-actions">
+          <button className="secondary" disabled={step === 0} onClick={() => setStep(Math.max(0, step - 1))}>Zurück</button>
+          {step < slides.length - 1
+            ? <button className="primary" onClick={() => setStep(step + 1)}>Weiter</button>
+            : <button className="primary" onClick={onClose}><Check size={16}/> Los geht’s</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Onboarding({
   setup,
   setSetup,
