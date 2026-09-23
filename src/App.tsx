@@ -358,6 +358,17 @@ export default function App() {
   });
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [tablePickerOpen, setTablePickerOpen] = useState(false);
+  const [tableContext, setTableContext] = useState<{
+    table: HTMLTableElement;
+    rowIndex: number;
+    columnIndex: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [selectionAi, setSelectionAi] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [selectionTextForAi, setSelectionTextForAi] = useState("");
   const [editorSyncVersion, setEditorSyncVersion] = useState(0);
   const [selectedChatAction, setSelectedChatAction] = useState<AiAction | null>(null);
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -367,6 +378,8 @@ export default function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+  const aiSelectionRangeRef = useRef<Range | null>(null);
+  const tableResizeRef = useRef<TableResizeSession | null>(null);
   const moduleEnrichmentRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
