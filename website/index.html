@@ -3,273 +3,186 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="ÜK Notizen – die moderne Desktop-App für Schweizer ICT-ÜKs mit offiziellen Moduldaten, Notizen, LBV, Noten und KI." />
-  <meta name="theme-color" content="#e8eef8" />
-  <title>ÜK Notizen – Dein ICT-ÜK, neu gedacht</title>
-  <link rel="stylesheet" href="styles.css?v=1.8.0" />
+  <meta name="description" content="ÜK Notizen – Desktop-App für Schweizer ICT-ÜKs mit offiziellen Moduldaten, Notizen, LBV, Noten und KI." />
+  <meta name="theme-color" content="#f5f5f7" />
+  <title>ÜK Notizen – Dein ICT-ÜK an einem Ort</title>
+  <link rel="stylesheet" href="styles.css?v=1.9.0" />
 </head>
 <body>
-  <div class="site-ambient" aria-hidden="true">
-    <i class="ambient-orb orb-a"></i>
-    <i class="ambient-orb orb-b"></i>
-    <i class="ambient-orb orb-c"></i>
-  </div>
-
-  <nav class="site-nav glass" id="top">
-    <a class="logo" href="#top" aria-label="ÜK Notizen">
-      <span class="logo-mark">ÜK</span><strong>ÜK Notizen</strong>
-    </a>
-    <div class="nav-links">
-      <a href="#produkt">Produkt</a>
-      <a href="#modul">Module</a>
-      <a href="#ki">KI</a>
-      <a href="#noten">Noten</a>
+  <nav class="site-nav glass" data-glass>
+    <a class="brand" href="#top"><span>ÜK</span><strong>ÜK Notizen</strong></a>
+    <div class="nav-center">
+      <a href="#module">Module</a><a href="#editor">Editor</a><a href="#ai">KI</a><a href="#grades">Noten</a>
     </div>
-    <a class="nav-download" href="#download"><span>↓</span> App laden</a>
+    <a class="nav-cta" href="#download">Download</a>
   </nav>
 
-  <main>
-    <section class="hero" id="produkt">
+  <main id="top">
+    <section class="hero">
       <div class="hero-copy reveal">
-        <div class="eyebrow-pill"><span>✦</span> Für Schweizer ICT-Lernende</div>
-        <h1>Dein ÜK.<br><em>Klar. Intelligent. Schön.</em></h1>
-        <p>Offizielle Moduldaten, moderne Notizen, Prüfungen, Noten und KI – in einem ruhigen Desktop-Workspace mit interaktivem Liquid-Glass-Design.</p>
+        <span class="eyebrow">Für Schweizer ICT-Lernende</span>
+        <h1>Alles für deinen ÜK.<br><em>Ohne Chaos.</em></h1>
+        <p>Modulnummer eingeben, offizielle Daten laden und direkt arbeiten. Notizen, Prüfungen, Noten und KI bleiben in einem klaren Desktop-Workspace.</p>
         <div class="hero-actions">
-          <a id="windows-download-hero" class="button primary" href="#download"><span class="os-symbol">⊞</span><div><b>Für Windows</b><small>Kostenlos herunterladen</small></div></a>
-          <a class="button secondary" href="#download"><span class="os-symbol">⌘</span><div><b>Für macOS</b><small>DMG & Anleitung</small></div></a>
+          <a class="button primary" href="#download">Kostenlos herunterladen</a>
+          <a class="button ghost" href="#module">So funktioniert’s</a>
         </div>
-        <div class="trust-row">
-          <span><i>✓</i> Lokal gespeichert</span>
-          <span><i>✓</i> Ohne Konto</span>
-          <span><i>✓</i> Groq · OpenAI · Gemini</span>
-        </div>
+        <div class="hero-meta"><span>Keine Anmeldung</span><i></i><span>Lokale Daten</span><i></i><span>Windows & macOS</span></div>
       </div>
 
-      <div class="hero-visual reveal" data-delay="100" data-liquid>
-        <div class="hero-glass-arc arc-one"></div>
-        <div class="hero-glass-arc arc-two"></div>
-        <div class="product-window glass" data-tilt>
-          <div class="window-chrome">
+      <div class="app-stage reveal" data-delay="80">
+        <div class="app-window">
+          <div class="window-bar">
             <div class="traffic"><i></i><i></i><i></i></div>
             <span>ÜK Notizen</span>
-            <div class="chrome-actions"><i></i><i></i></div>
           </div>
-          <div class="product-shell">
-            <aside class="preview-rail">
-              <span class="preview-logo">ÜK</span>
-              <button class="active">▤<small>Bibliothek</small></button>
-              <button>⚡<small>Quick</small></button>
-              <button>◎<small>Module</small></button>
-              <button>♡<small>Favoriten</small></button>
-              <button>✦<small>KI</small></button>
-              <button class="rail-bottom">⚙<small>Setup</small></button>
-            </aside>
-
-            <aside class="preview-library">
-              <header><div><small>WORKSPACE</small><strong>Bibliothek</strong></div><b>‹</b></header>
-              <div class="preview-create"><span>＋ Neuer ÜK</span><span>⚡ Quick</span></div>
-              <div class="preview-search">⌕ <span>Notizen durchsuchen…</span><kbd>⌘K</kbd></div>
-              <div class="preview-label">ÜK MODULE <b>＋</b></div>
-              <div class="preview-course active"><i>3</i><div><b>M294</b><small>Frontend Webapp</small></div><em>7</em></div>
-              <div class="preview-course"><i>4</i><div><b>M295</b><small>Backend</small></div><em>4</em></div>
-              <div class="preview-course"><i>5</i><div><b>M106</b><small>Datenbanken</small></div><em>3</em></div>
-              <div class="preview-label note-label">NOTIZEN <b>5</b></div>
-              <div class="preview-note active"><b>REST & CRUD</b><small>M294 · Heute</small><span>Ressourcen, Methoden und Statuscodes…</span></div>
+          <div class="app-preview">
+            <aside class="preview-sidebar glass" data-glass>
+              <header><span class="mini-logo">ÜK</span><div><b>ÜK Notizen</b><small>Colin</small></div><em>‹</em></header>
+              <div class="preview-actions"><strong>＋ Neuer ÜK</strong><b>⚡</b></div>
+              <div class="preview-search">⌕ <span>Suchen</span><kbd>⌘K</kbd></div>
+              <div class="preview-tabs"><span class="active">▤<small>ÜKs</small></span><span>⚡<small>Quick</small></span><span>♡<small>Favoriten</small></span><span>◫<small>Archiv</small></span></div>
+              <label>MODULE <b>＋</b></label>
+              <div class="preview-course active"><i>▤</i><div><b>M294</b><small>Frontend Webapp</small></div><em>7</em></div>
+              <div class="preview-course"><i>▤</i><div><b>M295</b><small>Backend</small></div><em>4</em></div>
+              <label>NOTIZEN <b>5</b></label>
+              <div class="preview-note active"><b>REST & CRUD</b><small>M294 · Heute</small><p>Ressourcen, Methoden und Statuscodes…</p></div>
               <div class="preview-note"><b>Prüfungsvorbereitung</b><small>M294 · Gestern</small></div>
+              <footer><span>◎<small>Module</small></span><span>◐<small>Design</small></span><span>⚙<small>Setup</small></span></footer>
             </aside>
 
             <section class="preview-workspace">
-              <div class="preview-topbar"><span>M294 · Frontend / REST & CRUD</span><div><button>✦ AI Assistant</button><button>＋ Notiz</button></div></div>
+              <div class="floating-bar glass" data-glass>
+                <span>M294 · Frontend / <b>REST & CRUD</b></span>
+              </div>
+              <div class="floating-actions glass" data-glass><span>↓ Word</span><span>✦ KI</span><strong>＋ Neue Notiz</strong></div>
               <article class="preview-document">
-                <div class="preview-context"><i>▤</i><span><small>M294</small><b>Web Engineering</b></span><em>✓ Lokal gespeichert</em></div>
+                <div class="doc-context"><i>▤</i><div><small>M294</small><b>Web Engineering</b></div><span>✓ Lokal gespeichert</span></div>
                 <h2>REST & CRUD</h2>
-                <div class="preview-meta"><span>M294 · Frontend</span><span>api, prüfung</span><span>Heute · 14:32</span></div>
-                <div class="preview-toolbar"><b>B</b><i>I</i><u>U</u><span>H2</span><span>☷</span><span>☑</span><span>▦</span><span>{ }</span><span>✦ KI</span></div>
-                <div class="preview-paper">
+                <div class="doc-meta"><span>M294 · Frontend</span><span>api, prüfung</span><span>Heute · 14:32</span></div>
+                <div class="editor-groups">
+                  <div class="glass" data-glass><b>B</b><i>I</i><u>U</u><span>H2</span><span>•</span><span>1.</span></div>
+                  <div class="glass" data-glass><span>▧</span><span>☑</span></div>
+                  <div class="glass" data-glass><span>♡</span><strong>✦ KI</strong><span>◫</span></div>
+                </div>
+                <div class="paper">
                   <h3>Grundidee von REST</h3>
                   <p>REST organisiert eine API über Ressourcen. CRUD beschreibt die vier Grundaktionen auf diesen Daten.</p>
-                  <div class="preview-callout"><b>Merken</b><span>HTTP-Methode + Ressource + Statuscode = klare Schnittstelle.</span></div>
-                  <div class="preview-flow"><strong>Client</strong><b>→</b><strong>API</strong><b>→</b><strong>Datenbank</strong></div>
-                  <div class="preview-table"><span><b>Methode</b><b>Aktion</b></span><span><i>GET</i><i>Read</i></span><span><i>POST</i><i>Create</i></span></div>
+                  <blockquote>HTTP-Methode + Ressource + Statuscode ergeben eine klare Schnittstelle.</blockquote>
+                  <div class="mini-table"><b>Methode</b><b>Aktion</b><span>GET</span><span>Read</span><span>POST</span><span>Create</span></div>
                 </div>
               </article>
             </section>
 
-            <aside class="preview-ai">
-              <header><span>✦</span><b>AI Assistant</b><i>×</i></header>
-              <div class="ai-welcome"><span>✦</span><div><b>Hallo.</b><small>Ich arbeite direkt mit deinen Notizen.</small></div></div>
-              <div class="ai-actions"><span>Zusammenfassen</span><span>Erklären</span><span>Lernfragen</span><span>Verbessern</span></div>
-              <div class="preview-chat user">Mach aus diesem Abschnitt eine Tabelle.</div>
-              <div class="preview-chat assistant"><b>Erledigt.</b><br>Ich habe die Auswahl direkt als strukturierte Tabelle eingesetzt.</div>
-              <div class="preview-ai-input"><span>Frag etwas zu deinem ÜK …</span><b>↑</b></div>
+            <aside class="preview-inspector glass" data-glass>
+              <header><span>✦</span><b>KI-Assistent</b><em>×</em></header>
+              <small>SCHNELLAKTIONEN</small>
+              <div class="quick-grid"><span>Zusammenfassen</span><span>Erklären</span><span>Verbessern</span><span>Lernfragen</span></div>
+              <div class="chat user">Mach daraus eine Tabelle.</div>
+              <div class="chat assistant">Erledigt. Ich habe die Auswahl direkt strukturiert.</div>
+              <div class="chat-input"><span>Frag etwas …</span><b>↑</b></div>
             </aside>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="signal-strip reveal">
-      <span>OFFIZIELLE MODULDATEN</span><i></i><span>RICH EDITOR</span><i></i><span>LBV & NOTEN</span><i></i><span>FLOWCHARTS</span><i></i><span>AI WORKSPACE</span>
+    <section class="principles">
+      <div class="principle reveal"><strong>1</strong><span>Modulnummer</span><p>Beruf auswählen und nur die Nummer eingeben.</p></div>
+      <div class="principle reveal" data-delay="40"><strong>2</strong><span>ÜK ist bereit</span><p>Offizielle Inhalte und LBV-Struktur werden geladen.</p></div>
+      <div class="principle reveal" data-delay="80"><strong>3</strong><span>Einfach arbeiten</span><p>Notizen, KI und Noten bleiben im selben Workspace.</p></div>
     </section>
 
-    <section id="modul" class="story module-story">
-      <div class="story-copy reveal">
-        <span class="section-kicker">01 · Ein Modul, automatisch</span>
-        <h2>Nummer eingeben.<br>Der Rest ist schon da.</h2>
-        <p>Wähle deinen Beruf und gib nur die Modulnummer ein. Kompetenz, Handlungsziele, Kenntnisse und veröffentlichte LBV-Daten landen direkt in deinem Workspace.</p>
-        <div class="feature-points">
-          <span><i>✓</i> Offizielle Modulstruktur</span>
-          <span><i>✓</i> Handlungsziele</span>
-          <span><i>✓</i> Lernstoff & Kenntnisse</span>
-          <span><i>✓</i> LBV & Gewichtungen</span>
-        </div>
+    <section id="module" class="split-section">
+      <div class="section-copy reveal">
+        <span class="eyebrow">Modulbaukasten</span>
+        <h2>Eine Nummer reicht.</h2>
+        <p>Wähle deine ICT-Ausbildung und gib zum Beispiel 294 ein. Die App erkennt das Modul und lädt Kompetenz, Handlungsziele, Kenntnisse und veröffentlichte LBV-Daten.</p>
+        <ul><li>Offizielle Modulstruktur</li><li>Handlungsziele & Kenntnisse</li><li>Veröffentlichte LBV</li><li>Manuelle ÜKs bleiben möglich</li></ul>
       </div>
-
-      <div class="module-demo glass reveal" data-delay="80" data-liquid>
-        <div class="demo-tabs">
-          <button class="demo-tab active" data-mode="official">Modulnummer</button>
-          <button class="demo-tab" data-mode="manual">Manuell</button>
-        </div>
+      <div class="module-demo reveal" data-delay="70">
+        <div class="demo-tabs"><button class="demo-tab active" data-mode="official">Modulnummer</button><button class="demo-tab" data-mode="manual">Manuell</button></div>
         <div class="demo-pane active" data-pane="official">
-          <label>Ausbildung
-            <select id="demo-profile">
-              <option>Informatiker/in EFZ – Applikationsentwicklung</option>
-              <option>Informatiker/in EFZ – Plattformentwicklung</option>
-              <option>ICT-Fachfrau/-mann EFZ</option>
-              <option>Mediamatiker/in EFZ</option>
-            </select>
-          </label>
-          <label>Modulnummer
-            <div class="module-input"><span>M</span><input id="module-demo-input" inputmode="numeric" value="294" maxlength="4" /></div>
-          </label>
-          <div id="module-demo-result" class="module-result glass-inner">
-            <div class="module-status"><i></i><small>OFFIZIELLES MODUL ERKANNT</small></div>
+          <label>Ausbildung<select><option>Informatiker/in EFZ – Applikationsentwicklung</option><option>Plattformentwicklung</option><option>ICT-Fachfrau/-mann EFZ</option></select></label>
+          <label>Modulnummer<div class="module-number"><span>M</span><input id="module-demo-input" value="294" inputmode="numeric" maxlength="4" /></div></label>
+          <div id="module-demo-result" class="module-result">
+            <small>OFFIZIELLES MODUL ERKANNT</small>
             <h3 id="demo-module-title">Frontend einer interaktiven Webapplikation realisieren</h3>
             <p id="demo-module-summary">Web Engineering · Kompetenz, Handlungsziele und LBV werden automatisch geladen.</p>
             <div class="loaded-items"><span><b>9</b> Handlungsziele</span><span><b>✓</b> Lernstoff</span><span><b>100%</b> LBV</span></div>
-            <button class="demo-create">Kompletten ÜK erstellen <span>→</span></button>
+            <button class="demo-create">Kompletten ÜK erstellen →</button>
           </div>
         </div>
         <div class="demo-pane" data-pane="manual">
-          <label>Eigener Titel<input value="Interner Cloud Workshop" /></label>
+          <label>Titel<input value="Interner Cloud Workshop" /></label>
           <label>Thema<input value="Cloud & Docker" /></label>
-          <div class="module-result glass-inner manual-preview">
-            <div class="module-status"><i></i><small>CUSTOM ÜK</small></div>
-            <h3>Interner Cloud Workshop</h3>
-            <p>Freie Struktur für Firmenkurse, Spezialmodule oder eigene Lernprojekte.</p>
-            <button class="demo-create">Eigenen ÜK erstellen <span>→</span></button>
-          </div>
+          <div class="module-result"><small>CUSTOM ÜK</small><h3>Interner Cloud Workshop</h3><p>Freie Struktur für eigene Kurse und Lernprojekte.</p><button class="demo-create">Eigenen ÜK erstellen →</button></div>
         </div>
       </div>
     </section>
 
-    <section class="editor-story">
-      <div class="section-heading reveal">
-        <span class="section-kicker">02 · Schreiben</span>
-        <h2>Ein Editor, der ruhig bleibt.</h2>
-        <p>Slash-Befehle, Tabellen, Code, Flowcharts und Inline-KI erscheinen nur dann, wenn du sie brauchst.</p>
-      </div>
-      <div class="editor-showcase glass reveal" data-liquid>
-        <div class="editor-showcase-top"><span>REST & CRUD</span><div><i>✓ gespeichert</i><button>✦ KI</button></div></div>
-        <div class="editor-showcase-body">
-          <aside><b>M294</b><span class="active">REST & CRUD</span><span>API Grundlagen</span><span>Authentifizierung</span><span>Testing</span></aside>
-          <article>
-            <div class="mini-toolbar"><b>B</b><i>I</i><u>U</u><span>H2</span><span>• Liste</span><span>▦</span><span>{ }</span><strong>✦ KI</strong></div>
-            <h3>REST & CRUD</h3>
-            <p>Eine Ressource wird über einen Endpoint angesprochen. HTTP-Methoden beschreiben, was mit der Ressource passiert.</p>
-            <pre><small>JAVASCRIPT · AUTO</small><code><em>const</em> response = <b>await</b> fetch(<span>"/api/notes"</span>);</code></pre>
-            <div class="inline-ai"><span>✦ KI fragen</span><span>Erklären</span><span>Verbessern</span><span>Tabelle</span><span>Flowchart</span></div>
-          </article>
-        </div>
+    <section id="editor" class="editor-section">
+      <div class="section-heading reveal"><span class="eyebrow">Editor</span><h2>Ruhig schreiben.<br>Werkzeuge nur wenn du sie brauchst.</h2></div>
+      <div class="editor-demo reveal">
+        <aside><b>M295</b><span class="active">REST & CRUD</span><span>API Grundlagen</span><span>Authentifizierung</span><span>Testing</span></aside>
+        <article>
+          <div class="demo-toolbar"><div class="glass" data-glass><b>B</b><i>I</i><span>H2</span><span>•</span></div><div class="glass" data-glass><span>▧</span><span>☑</span></div><div class="glass" data-glass><strong>✦ KI</strong></div></div>
+          <h3>REST & CRUD</h3>
+          <p>Ressourcen werden über Endpoints angesprochen. HTTP-Methoden beschreiben die Aktion.</p>
+          <pre><small>JAVASCRIPT · AUTO</small><code><em>const</em> response = <b>await</b> fetch(<span>"/api/notes"</span>);</code></pre>
+          <div class="selection-menu"><span>✦ KI fragen</span><span>Erklären</span><span>Verbessern</span><span>Tabelle</span><span>Flowchart</span></div>
+        </article>
       </div>
     </section>
 
-    <section id="ki" class="ai-story">
-      <div class="ai-copy reveal">
-        <span class="section-kicker">03 · KI, die wirklich mitarbeitet</span>
-        <h2>Nicht nur Chat.<br><em>Aktionen in der App.</em></h2>
-        <p>GroqCloud, OpenAI oder Gemini können ÜKs erstellen, mehrere Dokumente anlegen, Inhalte strukturieren, Tabellen und Flowcharts einsetzen und markierte Texte direkt bearbeiten.</p>
-        <div class="ai-actions-demo">
-          <button class="ai-demo-action active" data-ai="explain">Einfach erklären</button>
-          <button class="ai-demo-action" data-ai="summary">Zusammenfassen</button>
-          <button class="ai-demo-action" data-ai="quiz">Lernfragen</button>
-        </div>
+    <section id="ai" class="ai-section">
+      <div class="section-copy reveal">
+        <span class="eyebrow">KI-Assistent</span>
+        <h2>KI, die in der App arbeitet.</h2>
+        <p>GroqCloud, OpenAI oder Gemini können nicht nur antworten. Sie können ÜKs und mehrere Notizen erstellen, Texte bearbeiten, Tabellen einfügen und Flowcharts anlegen.</p>
+        <div class="ai-actions-demo"><button class="ai-demo-action active" data-ai="explain">Erklären</button><button class="ai-demo-action" data-ai="summary">Zusammenfassen</button><button class="ai-demo-action" data-ai="quiz">Lernfragen</button></div>
       </div>
-      <div class="ai-demo glass reveal" data-delay="100" data-liquid>
-        <header><span>✦</span><div><b>AI Assistant</b><small>Groq · OpenAI · Gemini</small></div></header>
-        <div class="ai-context">M294 · REST & CRUD</div>
+      <div class="ai-demo reveal" data-delay="70">
+        <header><span>✦</span><div><b>KI-Assistent</b><small>M294 · REST & CRUD</small></div></header>
         <div class="ai-message user">Erklär mir CRUD so, dass ich es für die Prüfung merke.</div>
-        <div id="ai-demo-response" class="ai-message assistant">
-          <div class="typing-dot"><i></i><i></i><i></i></div>
-          <div class="ai-response-text">CRUD sind vier Grundaktionen: <b>Create</b>, <b>Read</b>, <b>Update</b> und <b>Delete</b>. Denk an eine Notiz: erstellen, lesen, ändern, löschen.</div>
-        </div>
-        <div class="ai-chips"><span>In Notiz übernehmen</span><span>Beispiel erstellen</span></div>
+        <div id="ai-demo-response" class="ai-message assistant"><div class="typing-dot"><i></i><i></i><i></i></div><div class="ai-response-text">CRUD bedeutet <b>Create</b>, <b>Read</b>, <b>Update</b> und <b>Delete</b>. Denk an eine Notiz: erstellen, lesen, ändern, löschen.</div></div>
         <div class="ai-input"><span>Frag etwas zu deinem ÜK …</span><b>↑</b></div>
       </div>
     </section>
 
-    <section id="noten" class="grades-story">
-      <div class="section-heading reveal">
-        <span class="section-kicker">04 · LBV & Noten</span>
-        <h2>Du trägst die Note ein.<br>Die Struktur ist schon da.</h2>
-        <p>Offizielle LBV-Elemente und Gewichtungen bleiben gesperrt. Deine Note bleibt editierbar und die App berechnet den aktuellen Modulstand automatisch.</p>
-      </div>
-      <div class="grade-showcase">
-        <article class="grade-card glass reveal" data-liquid>
-          <header><div><small>M294</small><b>Frontend Webapplikation</b></div><strong>5.10</strong></header>
-          <div class="grade-row"><span><b>Element 1</b><small>Praktische Umsetzung</small></span><em>50%</em><input value="5.3" readonly /></div>
-          <div class="grade-row"><span><b>Element 2</b><small>Fachgespräch / Theorie</small></span><em>50%</em><input value="4.9" readonly /></div>
-          <footer><span>✓ Offizielle LBV</span><b>Bestanden</b></footer>
-        </article>
-        <article class="average-card glass reveal" data-delay="70" data-liquid>
-          <small>DEIN ÜK-DURCHSCHNITT</small><strong>4.87</strong>
-          <div class="average-track"><i></i></div>
-          <div class="average-list"><span>M106 <b>4.5</b></span><span>M294 <b>5.1</b></span><span>M295 <b>5.0</b></span></div>
-        </article>
+    <section id="grades" class="grades-section">
+      <div class="section-heading reveal"><span class="eyebrow">LBV & Noten</span><h2>Nur deine Note fehlt noch.</h2><p>Veröffentlichte Prüfungselemente und Gewichtungen bleiben strukturiert. Deine Noten ergeben automatisch den aktuellen Modulstand.</p></div>
+      <div class="grade-layout">
+        <article class="grade-table reveal"><header><div><small>M294</small><b>Frontend Webapplikation</b></div><strong>5.10</strong></header><div class="grade-row"><span><b>Element 1</b><small>Praktische Umsetzung</small></span><em>50%</em><i>5.3</i></div><div class="grade-row"><span><b>Element 2</b><small>Fachgespräch / Theorie</small></span><em>50%</em><i>4.9</i></div><footer><span>Offizielle LBV</span><b>Bestanden ✓</b></footer></article>
+        <article class="average reveal" data-delay="60"><small>ÜK-DURCHSCHNITT</small><strong>4.87</strong><div class="average-bar"><i></i></div><span>M106 <b>4.5</b></span><span>M294 <b>5.1</b></span><span>M295 <b>5.0</b></span></article>
       </div>
     </section>
 
-    <section class="feature-section">
-      <div class="section-heading reveal">
-        <span class="section-kicker">Alles an einem Ort</span>
-        <h2>Ein Workspace für den ganzen ÜK.</h2>
-      </div>
+    <section class="features">
+      <div class="section-heading reveal"><span class="eyebrow">Mehr drin</span><h2>Ein Workspace für den ganzen ÜK.</h2></div>
       <div class="feature-grid">
-        <article class="feature-card glass reveal"><span class="feature-icon blue">▤</span><h3>Offizielle Module</h3><p>Nummer eingeben und veröffentlichte Daten automatisch laden.</p></article>
-        <article class="feature-card glass reveal" data-delay="40"><span class="feature-icon purple">⚡</span><h3>Quick Notes</h3><p>Gedanken sofort festhalten und später einem ÜK zuordnen.</p></article>
-        <article class="feature-card glass reveal" data-delay="80"><span class="feature-icon cyan">✦</span><h3>AI Workspace</h3><p>Erklären, strukturieren und direkt Aktionen in der App ausführen.</p></article>
-        <article class="feature-card glass reveal"><span class="feature-icon green">5.1</span><h3>LBV & Noten</h3><p>Gewichtungen im Blick und aktuelle Modulnote automatisch berechnen.</p></article>
-        <article class="feature-card glass reveal" data-delay="40"><span class="feature-icon orange">{ }</span><h3>Rich Editor</h3><p>Code, Tabellen, Callouts, Flowcharts, Checklisten und Bilder.</p></article>
-        <article class="feature-card glass reveal" data-delay="80"><span class="feature-icon violet">↗</span><h3>Word Export</h3><p>Ganzer ÜK mit Inhaltsverzeichnis, Name und Seitenzahlen.</p></article>
+        <article><i>▤</i><h3>Offizielle Module</h3><p>Nummer eingeben und öffentliche Moduldaten laden.</p></article>
+        <article><i>⚡</i><h3>Quick Notes</h3><p>Spontan notieren und später zuordnen.</p></article>
+        <article><i>✦</i><h3>Inline-KI</h3><p>Text markieren und direkt erklären oder bearbeiten lassen.</p></article>
+        <article><i>{ }</i><h3>Code & Tabellen</h3><p>Syntax Highlighting, Tabellen und strukturierte Blöcke.</p></article>
+        <article><i>◇</i><h3>Flowcharts</h3><p>Abläufe direkt im Editor bauen und verbinden.</p></article>
+        <article><i>↗</i><h3>Word Export</h3><p>ÜK mit Inhaltsverzeichnis, Name und Seitenzahlen.</p></article>
       </div>
     </section>
 
     <section id="download" class="download-section">
-      <div class="download-copy reveal">
-        <span class="section-kicker">Download</span>
-        <h2>Bereit für deinen nächsten ÜK?</h2>
-        <p>Keine Anmeldung und kein Abo. Herunterladen, Ausbildung auswählen und direkt starten.</p>
-        <div class="privacy-pill">🔒 Notizen und API-Keys bleiben lokal auf deinem Gerät.</div>
-      </div>
-      <div class="download-stack reveal" data-delay="70">
-        <a id="windows-download" class="download-card glass featured" href="https://github.com/colin515/uek-notizen/releases/download/v1.7.0/UEK-Notizen-Windows-x64.zip">
-          <span class="download-icon windows">⊞</span><div><small>WINDOWS · 64-BIT</small><b>Windows herunterladen</b><span>Portable ZIP · entpacken und starten</span></div><em>↓</em>
-        </a>
-        <a id="mac-download" class="download-card glass" href="macos.html">
-          <span class="download-icon">⌘</span><div><small>MACOS · UNIVERSAL</small><b>macOS herunterladen</b><span>DMG / ZIP · Anleitung inklusive</span></div><em>→</em>
-        </a>
+      <div class="download-copy reveal"><span class="eyebrow">Download</span><h2>Bereit für deinen nächsten ÜK?</h2><p>Keine Anmeldung, kein Abo. App laden, Ausbildung wählen und starten.</p></div>
+      <div class="downloads reveal" data-delay="60">
+        <a id="windows-download" class="download-card featured" href="https://github.com/colin515/uek-notizen/releases/download/v1.9.0/UEK-Notizen-Windows-x64.zip"><i>⊞</i><div><small>WINDOWS · 64-BIT</small><b>Windows herunterladen</b><span>Portable ZIP · entpacken und starten</span></div><strong>↓</strong></a>
+        <a id="mac-download" class="download-card" href="macos.html"><i>⌘</i><div><small>MACOS · UNIVERSAL</small><b>macOS herunterladen</b><span>DMG / ZIP · Anleitung inklusive</span></div><strong>→</strong></a>
         <p id="release-status">Aktuelle Version wird geprüft …</p>
       </div>
     </section>
   </main>
 
-  <footer>
-    <a class="logo" href="#top"><span class="logo-mark">ÜK</span><strong>ÜK Notizen</strong></a>
-    <p>Gebaut für einen ruhigeren, besseren ÜK-Alltag.</p>
-    <div><a href="https://github.com/colin515/uek-notizen">GitHub ↗</a><span>© 2026 Colin</span></div>
-  </footer>
+  <footer><a class="brand" href="#top"><span>ÜK</span><strong>ÜK Notizen</strong></a><p>Für einen ruhigeren ÜK-Alltag.</p><div><a href="https://github.com/colin515/uek-notizen">GitHub ↗</a><span>© 2026 Colin</span></div></footer>
 
-  <script src="showcase.js?v=1.8.0"></script>
-  <script src="downloads.js?v=1.8.0"></script>
+  <script src="showcase.js?v=1.9.0"></script>
+  <script src="downloads.js?v=1.9.0"></script>
 </body>
 </html>
