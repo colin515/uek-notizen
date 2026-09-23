@@ -1226,9 +1226,30 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const insertPickedTable = (rows: number, columns: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    if (savedSelectionRef.current) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(savedSelectionRef.current);
+    }
+
+    document.execCommand("insertHTML", false, createEmptyTableHtml(rows, columns));
+    patchNote({ content: editor.innerHTML });
+    setTablePickerOpen(false);
+    setSlashQuery(null);
+    setToast(columns + " × " + rows + " Tabelle eingefügt");
+  };
+
   const runSlashCommand = (command: string) => {
     const editor = editorRef.current;
     if (!editor) return;
+
+    setTableContext(null);
+    setSelectionAi(null);
 
     if (command === "bild") {
       replaceSlashCommand(editor, "");
@@ -1238,14 +1259,24 @@ export default function App() {
       savedSelectionRef.current = currentSelectionRange(editor);
       setEditingFlowchartId(null);
       setFlowchartDraft(createFlowchart());
+    } else if (command === "table") {
+      replaceSlashCommand(editor, "");
+      savedSelectionRef.current = currentSelectionRange(editor);
+      setTablePickerOpen(true);
     } else {
       const replacement = slashReplacement(command);
       if (replacement) {
         replaceSlashCommand(editor, replacement);
+        if (command === "code") {
+          const blocks = editor.querySelectorAll<HTMLElement>("pre.code-block code");
+          const code = blocks[blocks.length - 1];
+          if (code) highlightCodeElement(code);
+        }
         patchNote({ content: editor.innerHTML });
       }
     }
 
+    setSlashIndex(0);
     setSlashQuery(null);
   };
 
@@ -1284,24 +1315,166 @@ export default function App() {
     setToast("Flowchart gespeichert");
   };
 
-  const updateSlashMenu = () => {
-    if (editorRef.current) setSlashQuery(getSlashQuery(editorRef.current));
+  const handleEditorInput = (event: React.FormEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    const code = target.closest("pre.code-block code") as HTMLElement | null;
+
+    if (code) {
+      highlightCodeElement(code);
+      setSlashQuery(null);
+      return;
+    }
+
+    const next = editorRef.current ? getSlashQuery(editorRef.current) : null;
+    setSlashQuery(next);
+    setSlashIndex(0);
   };
 
   const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (slashQuery !== null && event.key === "Escape") {
-      setSlashQuery(null);
+    if (handleCodeTab(event)) return;
+
+    if (tablePickerOpen && event.key === "Escape") {
+      setTablePickerOpen(false);
       event.preventDefault();
       return;
     }
 
+    if (slashQuery !== null && event.key === "Escape") {
+      setSlashQuery(null);
+      setSlashIndex(0);
+      event.preventDefault();
+      return;
+    }
+
+    if (slashQuery !== null && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      event.preventDefault();
+      if (!slashMatches.length) return;
+      setSlashIndex(current => {
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        return (current + delta + slashMatches.length) % slashMatches.length;
+      });
+      return;
+    }
+
     if (slashQuery !== null && event.key === "Enter") {
-      const match = slashCommands.find(command => slashCommandMatches(command, slashQuery));
+      const match = slashMatches[Math.min(slashIndex, Math.max(0, slashMatches.length - 1))];
       if (match) {
         event.preventDefault();
         runSlashCommand(match.query);
       }
     }
+  };
+
+  const handleEditorPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (tableResizeRef.current) return;
+    event.currentTarget.style.cursor = tableResizeCursor(event.target, event.clientX, event.clientY);
+  };
+
+  const handleEditorPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const session = startTableResize(event.target, event.clientX, event.clientY, editor);
+    if (!session) return;
+
+    event.preventDefault();
+    tableResizeRef.current = session;
+    setSelectionAi(null);
+
+    const move = (moveEvent: PointerEvent) => {
+      if (!tableResizeRef.current) return;
+      updateTableResize(tableResizeRef.current, moveEvent.clientX, moveEvent.clientY);
+    };
+
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (tableResizeRef.current && editorRef.current) {
+        patchNote({ content: editorRef.current.innerHTML });
+      }
+      tableResizeRef.current = null;
+      if (editorRef.current) editorRef.current.style.cursor = "";
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
+  };
+
+  const handleEditorClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const context = tableCellContext(event.target);
+    if (!context) {
+      setTableContext(null);
+      return;
+    }
+
+    const rect = context.cell.getBoundingClientRect();
+    setTableContext({
+      table: context.table,
+      rowIndex: context.rowIndex,
+      columnIndex: context.columnIndex,
+      x: Math.min(window.innerWidth - 390, Math.max(12, rect.left)),
+      y: Math.max(12, rect.top - 44)
+    });
+  };
+
+  const updateSelectionAi = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    window.requestAnimationFrame(() => {
+      const range = currentSelectionRange(editor);
+      const text = range?.toString().trim() ?? "";
+      if (!range || range.collapsed || text.length < 2) {
+        setSelectionAi(null);
+        return;
+      }
+
+      const rect = range.getBoundingClientRect();
+      if (!rect.width && !rect.height) return;
+      aiSelectionRangeRef.current = range.cloneRange();
+      setSelectionAi({
+        text: text.slice(0, 6000),
+        x: Math.min(window.innerWidth - 260, Math.max(12, rect.left + rect.width / 2)),
+        y: Math.max(12, rect.top - 46)
+      });
+    });
+  };
+
+  const openAiForSelection = () => {
+    if (!selectionAi) return;
+    setSelectionTextForAi(selectionAi.text);
+    setAiOpen(true);
+    setChatInput("");
+    setSelectionAi(null);
+  };
+
+  const improveSelectionDirectly = async () => {
+    if (!selectionAi || !aiSelectionRangeRef.current || !editorRef.current || aiLoading) return;
+
+    const selectedText = selectionAi.text;
+    setAiLoading(true);
+    setSelectionAi(null);
+
+    try {
+      const improved = await askAi(activeAiConnection, "improve", "<p>" + escapeHtml(selectedText) + "</p>");
+      const editor = editorRef.current;
+      editor.focus();
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(aiSelectionRangeRef.current);
+      document.execCommand("insertText", false, improved);
+      patchNote({ content: editor.innerHTML });
+      setToast("Auswahl wurde von der KI verbessert");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const commitTableChange = () => {
+    if (!editorRef.current) return;
+    patchNote({ content: editorRef.current.innerHTML });
   };
 
   const handleEditorPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
