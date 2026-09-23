@@ -1827,9 +1827,9 @@ export default function App() {
               {data.settings.theme === "light" ? <Moon size={18}/> : <Sun size={18}/>}
             </button>
 
-            {selected && <button className="secondary ai-top-btn" title="KI-Chat öffnen" onClick={openAi}><Sparkles size={16}/> <strong>KI</strong></button>}
-            {selectedCourse && <button className="secondary" onClick={exportCourse}><Download size={16}/> Ganzen ÜK als Word</button>}
-            {selectedCourse && <button className="secondary" onClick={() => void exportTxt()}><Download size={16}/> TXT</button>}
+            {selected && <button className={"secondary ai-top-btn " + (aiOpen ? "active" : "")} title="KI-Assistent" onClick={() => setAiOpen(value => !value)}><Sparkles size={16}/> <strong>AI Assistant</strong></button>}
+            {selectedCourse && <button className="secondary export-action" onClick={exportCourse}><Download size={16}/> Word</button>}
+            {selectedCourse && <button className="secondary export-action compact-export" title="Als TXT exportieren" onClick={() => void exportTxt()}><Download size={15}/> TXT</button>}
             {selectedCourse && <button className="primary" onClick={() => addNote()}><FilePlus2 size={16}/> Neue Notiz</button>}
             {quickMode && <button className="primary" onClick={() => addQuickNote()}><Zap size={16}/> Schnellnotiz</button>}
           </div>
@@ -1847,6 +1847,15 @@ export default function App() {
           </section>
         ) : (
           <section className="editor-wrap">
+            <div className="document-context">
+              <span className="document-context-icon">{selected.courseId === null ? <Zap size={17}/> : <Layers3 size={17}/>}</span>
+              <div>
+                <small>{selected.courseId === null ? "Quick Note" : selectedCourse?.number ?? "ÜK Notizen"}</small>
+                <strong>{selected.courseId === null ? "Freie Notiz" : selectedCourse?.moduleField ?? selectedCourse?.title ?? "Dokument"}</strong>
+              </div>
+              <span className="document-save-state"><Check size={13}/> Lokal gespeichert</span>
+            </div>
+
             <input className="title-input" value={selected.title} onChange={event => patchNote({ title: event.target.value })} placeholder="Titel"/>
 
             <div className="meta-row">
