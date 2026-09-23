@@ -1704,19 +1704,19 @@ export default function App() {
             {sidebar ? <PanelLeftClose size={19}/> : <PanelLeftOpen size={19}/>}
             <span>Bibliothek</span>
           </button>
-          <button className={filter === "quick" ? "active" : ""} title="Schnellnotizen" onClick={selectQuickNotes}>
+          <button className={filter === "quick" ? "active" : ""} title="Schnellnotizen" onClick={() => { setSidebar(true); selectQuickNotes(); }}>
             <Zap size={18}/><span>Quick</span>
           </button>
-          <button title="Module & Noten" onClick={() => setModuleHubOpen(true)}>
+          <button className={moduleHubOpen ? "active" : ""} title="Module & Noten" onClick={() => setModuleHubOpen(true)}>
             <GraduationCap size={19}/><span>Module</span>
           </button>
-          <button className={filter === "favorites" ? "active" : ""} title="Favoriten" onClick={() => setFilter("favorites")}>
+          <button className={filter === "favorites" ? "active" : ""} title="Favoriten" onClick={() => { setSidebar(true); setFilter("favorites"); }}>
             <Heart size={18}/><span>Favoriten</span>
           </button>
-          <button className={filter === "archive" ? "active" : ""} title="Archiv" onClick={() => setFilter("archive")}>
+          <button className={filter === "archive" ? "active" : ""} title="Archiv" onClick={() => { setSidebar(true); setFilter("archive"); }}>
             <Archive size={18}/><span>Archiv</span>
           </button>
-          <button className={aiOpen ? "active ai-rail-button" : "ai-rail-button"} title="KI-Assistent" onClick={() => selected && setAiOpen(value => !value)}>
+          <button className={aiOpen ? "active ai-rail-button" : "ai-rail-button"} title="KI-Assistent" onClick={() => selected ? setAiOpen(value => !value) : setToast("Öffne zuerst eine Notiz für den KI-Assistenten")}>
             <Sparkles size={18}/><span>KI</span>
           </button>
         </nav>
@@ -1726,7 +1726,7 @@ export default function App() {
             {data.settings.theme === "light" ? <Moon size={18}/> : <Sun size={18}/>}
             <span>Design</span>
           </button>
-          <button title="Einstellungen" onClick={() => setSettingsOpen(true)}>
+          <button className={settingsOpen ? "active" : ""} title="Einstellungen" onClick={() => setSettingsOpen(true)}>
             <SettingsIcon size={18}/><span>Setup</span>
           </button>
           <button className="rail-user" title={data.settings.name || "Profil"} onClick={() => setSettingsOpen(true)}>
