@@ -1,27 +1,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, Heart, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, X } from "lucide-react";
+import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, Heart, HelpCircle, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, Workflow, X, Zap } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { askGroq, askGroqChat, type AiAction, type AiChatResult } from "./ai";
 import { exportCourseDocx } from "./docxExport";
 import { exportCourseTxt } from "./txtExport";
 import { createId, loadData, sampleCourse, sampleNote, saveData } from "./storage";
+import { slashCommands, slashCommandMatches, slashReplacement } from "./editorBlocks";
+import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchartHtml, type FlowchartData } from "./FlowchartEditor";
 import type { AppData, Course, Note } from "./types";
 
-type Filter = "course" | "favorites" | "archive";
+type Filter = "course" | "quick" | "favorites" | "archive";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ContextMenu = { x: number; y: number; noteId: string } | null;
 
-const slashCommands = [
-  { name: "H2", query: "h2", hint: "Überschrift" },
-  { name: "H3", query: "h3", hint: "Kleine Überschrift" },
-  { name: "Stichpunkte", query: "bullet", hint: "Aufzählung" },
-  { name: "Nummerierte Liste", query: "number", hint: "Nummerierung" },
-  { name: "Checkliste", query: "check", hint: "☐ Aufgabe" },
-  { name: "Zitat", query: "quote", hint: "Zitatblock" },
-  { name: "Trennlinie", query: "divider", hint: "Horizontale Linie" },
-  { name: "Bild", query: "bild", hint: "Bild einfügen" }
-];
 
 const SEARCH_GROUPS = [
   ["kabel", "kabels", "usb", "usb-c", "usbc", "hdmi", "displayport", "display", "monitor", "bildschirm", "anschluss", "anschlüsse", "video", "signal", "adapter", "siplay"],
@@ -247,7 +239,7 @@ function insertImageAtSelection(root: HTMLElement, dataUrl: string, alt: string)
   );
 }
 
-function createNote(courseId: string, title = "Unbenannte Notiz", content = "<p></p>"): Note {
+function createNote(courseId: string | null, title = "Unbenannte Notiz", content = "<p></p>"): Note {
   const now = new Date().toISOString();
   return {
     id: createId(),
@@ -269,7 +261,8 @@ function StableEditor({
   onChange,
   onKeyDown,
   onInput,
-  onPaste
+  onPaste,
+  onDoubleClick
 }: {
   note: Note;
   editorRef: React.RefObject<HTMLDivElement | null>;
@@ -278,6 +271,7 @@ function StableEditor({
   onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
   onInput: (event: React.FormEvent<HTMLDivElement>) => void;
   onPaste: (event: React.ClipboardEvent<HTMLDivElement>) => void;
+  onDoubleClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
   useEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = note.content;
@@ -296,6 +290,7 @@ function StableEditor({
       }}
       onKeyDown={onKeyDown}
       onPaste={onPaste}
+      onDoubleClick={onDoubleClick}
     />
   );
 }
@@ -321,6 +316,10 @@ export default function App() {
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [editorSyncVersion, setEditorSyncVersion] = useState(0);
   const [selectedChatAction, setSelectedChatAction] = useState<AiAction | null>(null);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [flowchartDraft, setFlowchartDraft] = useState<FlowchartData | null>(null);
+  const [editingFlowchartId, setEditingFlowchartId] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
@@ -329,6 +328,13 @@ export default function App() {
     saveData(data);
     document.documentElement.dataset.theme = data.settings.theme;
   }, [data]);
+
+  useEffect(() => {
+    if (data.settings.onboarded && !data.settings.tutorialSeen) {
+      setTutorialStep(0);
+      setTutorialOpen(true);
+    }
+  }, [data.settings.onboarded, data.settings.tutorialSeen]);
 
   useEffect(() => {
     if (!toast) return;
@@ -348,8 +354,10 @@ export default function App() {
 
   const selectedCourse = data.courses.find(course => course.id === data.selectedCourseId) ?? null;
   const selected = data.notes.find(note => note.id === data.selectedNoteId) ?? null;
+  const quickMode = filter === "quick";
 
-  const courseLabel = (courseId: string) => {
+  const courseLabel = (courseId: string | null) => {
+    if (!courseId) return "Schnellnotiz";
     const course = data.courses.find(item => item.id === courseId);
     return course ? course.number + " · " + course.title : "Unbekannter ÜK";
   };
@@ -358,6 +366,7 @@ export default function App() {
     return data.notes
       .filter(note => {
         if (filter === "course" && (note.courseId !== data.selectedCourseId || note.archived)) return false;
+        if (filter === "quick" && (note.courseId !== null || note.archived)) return false;
         if (filter === "favorites" && (!note.favorite || note.archived)) return false;
         if (filter === "archive" && !note.archived) return false;
         return true;
@@ -412,6 +421,19 @@ export default function App() {
     setFilter("course");
   };
 
+  const selectQuickNotes = () => {
+    const firstNote = data.notes
+      .filter(note => note.courseId === null && !note.archived)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+
+    setData(current => ({
+      ...current,
+      selectedCourseId: null,
+      selectedNoteId: firstNote?.id ?? null
+    }));
+    setFilter("quick");
+  };
+
   const addCourse = (numberOverride?: string, titleOverride?: string): string | null => {
     const number = (numberOverride ?? courseDraft.number).trim();
     const title = (titleOverride ?? courseDraft.title).trim();
@@ -452,6 +474,19 @@ export default function App() {
       selectedCourseId: courseId
     }));
     setFilter("course");
+    return note.id;
+  };
+
+  const addQuickNote = (title = "Schnellnotiz", content = "<p></p>"): string => {
+    const note = createNote(null, title, content);
+    setData(current => ({
+      ...current,
+      notes: [note, ...current.notes],
+      selectedNoteId: note.id,
+      selectedCourseId: null
+    }));
+    setFilter("quick");
+    setToast("Schnellnotiz erstellt");
     return note.id;
   };
 
@@ -568,7 +603,9 @@ export default function App() {
   const buildAiContext = () => {
     const currentCourse = selectedCourse
       ? "Aktueller ÜK: " + selectedCourse.number + " · " + selectedCourse.title
-      : "Kein ÜK ausgewählt";
+      : selected?.courseId === null
+        ? "Aktueller Bereich: Schnellnotizen (ohne ÜK)"
+        : "Kein ÜK ausgewählt";
 
     const currentNote = selected
       ? "Aktuelle Notiz: " + selected.title + "\n" + stripHtml(selected.content).slice(0, 7000)
@@ -582,12 +619,12 @@ export default function App() {
 
     const notes = data.notes
       .filter(note => !note.archived)
-      .slice(0, 30)
+      .slice(0, 18)
       .map(note => ({
         id: note.id,
         courseId: note.courseId,
         title: note.title,
-        content: stripHtml(note.content).slice(0, 1200)
+        content: stripHtml(note.content).slice(0, 700)
       }));
 
     return { currentCourse, currentNote, courses, notes };
@@ -620,13 +657,14 @@ export default function App() {
 
         if (action.type === "create_note") {
           let courseId = action.courseId;
-          if (!courseId || courseId === "current") courseId = selectedCourseId ?? undefined;
-          if (courseId === "newest_created") courseId = createdCourseId ?? selectedCourseId ?? undefined;
-          if (!courseId) courseId = createdCourseId ?? selectedCourseId ?? undefined;
-          if (!courseId) continue;
+          if (courseId === "quick") courseId = null;
+          else if (!courseId || courseId === "current") courseId = selectedCourseId ?? undefined;
+          else if (courseId === "newest_created") courseId = createdCourseId ?? selectedCourseId ?? undefined;
+          if (courseId === undefined) courseId = createdCourseId ?? selectedCourseId ?? undefined;
+          if (courseId === undefined) continue;
 
           const note: Note = {
-            ...createNote(courseId, action.title.trim() || "Neue Notiz", plainTextToHtml(action.content)),
+            ...createNote(courseId, action.title.trim() || (courseId === null ? "Schnellnotiz" : "Neue Notiz"), plainTextToHtml(action.content)),
             tags: Array.isArray(action.tags) ? action.tags.filter(Boolean).slice(0, 10) : []
           };
 
@@ -755,25 +793,58 @@ export default function App() {
     const editor = editorRef.current;
     if (!editor) return;
 
-    const replacements: Record<string, string> = {
-      h2: "<h2>Überschrift</h2><p></p>",
-      h3: "<h3>Unterüberschrift</h3><p></p>",
-      bullet: "<ul><li>Erster Punkt</li><li>Zweiter Punkt</li></ul><p></p>",
-      number: "<ol><li>Erster Punkt</li><li>Zweiter Punkt</li></ol><p></p>",
-      check: "<p>☐ Aufgabe</p><p>☐ Nächste Aufgabe</p><p></p>",
-      quote: "<blockquote>Zitat oder wichtige Aussage</blockquote><p></p>",
-      divider: "<hr /><p></p>"
-    };
-
     if (command === "bild") {
       replaceSlashCommand(editor, "");
       insertImage();
-    } else if (replacements[command]) {
-      replaceSlashCommand(editor, replacements[command]);
-      patchNote({ content: editor.innerHTML });
+    } else if (command === "flowchart") {
+      replaceSlashCommand(editor, "");
+      savedSelectionRef.current = currentSelectionRange(editor);
+      setEditingFlowchartId(null);
+      setFlowchartDraft(createFlowchart());
+    } else {
+      const replacement = slashReplacement(command);
+      if (replacement) {
+        replaceSlashCommand(editor, replacement);
+        patchNote({ content: editor.innerHTML });
+      }
     }
 
     setSlashQuery(null);
+  };
+
+  const handleEditorDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    const block = target.closest(".flowchart-block") as HTMLElement | null;
+    if (!block) return;
+    const parsed = parseFlowchartElement(block);
+    if (!parsed) return;
+    event.preventDefault();
+    setEditingFlowchartId(parsed.id);
+    setFlowchartDraft(parsed);
+  };
+
+  const saveFlowchart = (flowchart: FlowchartData) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const html = renderFlowchartHtml(flowchart);
+    if (editingFlowchartId) {
+      const block = editor.querySelector('.flowchart-block[data-flowchart-id="' + editingFlowchartId + '"]');
+      if (block) block.outerHTML = html;
+    } else {
+      editor.focus();
+      if (savedSelectionRef.current) {
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(savedSelectionRef.current);
+      }
+      document.execCommand("insertHTML", false, html + "<p><br></p>");
+    }
+
+    patchNote({ content: editor.innerHTML });
+    setFlowchartDraft(null);
+    setEditingFlowchartId(null);
+    setToast("Flowchart gespeichert");
   };
 
   const updateSlashMenu = () => {
@@ -788,10 +859,7 @@ export default function App() {
     }
 
     if (slashQuery !== null && event.key === "Enter") {
-      const match = slashCommands.find(command =>
-        command.query.startsWith(slashQuery) ||
-        command.name.toLocaleLowerCase("de-CH").startsWith(slashQuery)
-      );
+      const match = slashCommands.find(command => slashCommandMatches(command, slashQuery));
       if (match) {
         event.preventDefault();
         runSlashCommand(match.query);
@@ -852,9 +920,14 @@ export default function App() {
             <div><strong>ÜK Notizen</strong><span>{data.settings.name}</span></div>
           </div>
 
-          <button className="new-note" onClick={() => setCourseModalOpen(true)}>
-            <Plus size={17}/> Neuen ÜK erstellen
-          </button>
+          <div className="create-actions">
+            <button className="new-note" onClick={() => setCourseModalOpen(true)}>
+              <Plus size={17}/> Neuer ÜK
+            </button>
+            <button className="quick-note-button" onClick={() => addQuickNote()}>
+              <Zap size={16}/> Schnellnotiz
+            </button>
+          </div>
 
           <label className="search">
             <Search size={16}/>
@@ -863,6 +936,9 @@ export default function App() {
           {query.trim() && <div className="search-hint">Schlaue Suche berücksichtigt Themen, Synonyme und ähnliche Begriffe.</div>}
 
           <nav className="nav-list">
+            <button className={filter === "quick" ? "active" : ""} onClick={selectQuickNotes}>
+              <Zap size={16}/> Schnellnotizen <span>{data.notes.filter(note => note.courseId === null && !note.archived).length}</span>
+            </button>
             <button className={filter === "favorites" ? "active" : ""} onClick={() => setFilter("favorites")}><Heart size={16}/> Favoriten</button>
             <button className={filter === "archive" ? "active" : ""} onClick={() => setFilter("archive")}><Archive size={16}/> Archiv</button>
           </nav>
@@ -921,7 +997,7 @@ export default function App() {
           </button>
 
           <div className="breadcrumbs">
-            <span>{selectedCourse ? selectedCourse.number + " · " + selectedCourse.title : "ÜK Notizen"}</span>
+            <span>{selectedCourse ? selectedCourse.number + " · " + selectedCourse.title : selected?.courseId === null || quickMode ? "Schnellnotizen" : "ÜK Notizen"}</span>
             {selected && <><span>/</span><strong>{selected.title}</strong></>}
           </div>
 
@@ -934,17 +1010,18 @@ export default function App() {
             {selectedCourse && <button className="secondary" onClick={exportCourse}><Download size={16}/> Ganzen ÜK als Word</button>}
             {selectedCourse && <button className="secondary" onClick={() => void exportTxt()}><Download size={16}/> TXT</button>}
             {selectedCourse && <button className="primary" onClick={() => addNote()}><FilePlus2 size={16}/> Neue Notiz</button>}
+            {quickMode && <button className="primary" onClick={() => addQuickNote()}><Zap size={16}/> Schnellnotiz</button>}
           </div>
         </header>
 
         {!selected ? (
           <section className="empty-state">
-            <div>{selectedCourse ? <BookOpen size={34}/> : <Layers3 size={34}/>}</div>
-            <h1>{selectedCourse ? selectedCourse.number + " – " + selectedCourse.title : "Erstelle deinen ersten ÜK"}</h1>
-            <p>{selectedCourse ? "Dieser ÜK ist bereit für deine Notizen." : "Lege zuerst Nummer und Titel fest. Danach sammelst du alle zugehörigen Notizen an einem Ort."}</p>
-            <button className="primary" onClick={selectedCourse ? () => addNote() : () => setCourseModalOpen(true)}>
-              {selectedCourse ? <FilePlus2 size={17}/> : <Plus size={17}/>}
-              {selectedCourse ? "Erste Notiz erstellen" : "ÜK erstellen"}
+            <div>{quickMode ? <Zap size={34}/> : selectedCourse ? <BookOpen size={34}/> : <Layers3 size={34}/>}</div>
+            <h1>{quickMode ? "Noch keine Schnellnotizen" : selectedCourse ? selectedCourse.number + " – " + selectedCourse.title : "Erstelle deinen ersten ÜK"}</h1>
+            <p>{quickMode ? "Für Gedanken, Aufgaben und Infos, die zu keinem bestimmten ÜK gehören." : selectedCourse ? "Dieser ÜK ist bereit für deine Notizen." : "Lege zuerst Nummer und Titel fest. Danach sammelst du alle zugehörigen Notizen an einem Ort."}</p>
+            <button className="primary" onClick={quickMode ? () => addQuickNote() : selectedCourse ? () => addNote() : () => setCourseModalOpen(true)}>
+              {quickMode ? <Zap size={17}/> : selectedCourse ? <FilePlus2 size={17}/> : <Plus size={17}/>}
+              {quickMode ? "Schnellnotiz erstellen" : selectedCourse ? "Erste Notiz erstellen" : "ÜK erstellen"}
             </button>
           </section>
         ) : (
@@ -954,11 +1031,13 @@ export default function App() {
             <div className="meta-row">
               <label>
                 <FolderOpen size={15}/>
-                <select value={selected.courseId} onChange={event => {
-                  const courseId = event.target.value;
+                <select value={selected.courseId ?? "__quick__"} onChange={event => {
+                  const courseId = event.target.value === "__quick__" ? null : event.target.value;
                   patchNote({ courseId });
                   setData(current => ({ ...current, selectedCourseId: courseId }));
+                  setFilter(courseId === null ? "quick" : "course");
                 }}>
+                  <option value="__quick__">Schnellnotiz · ohne ÜK</option>
                   {data.courses.map(course => <option key={course.id} value={course.id}>{course.number} · {course.title}</option>)}
                 </select>
               </label>
@@ -996,7 +1075,7 @@ export default function App() {
               <div className="slash-menu">
                 <div className="slash-title">/ Schnellbefehle</div>
                 {slashCommands
-                  .filter(command => !slashQuery || command.query.includes(slashQuery) || command.name.toLocaleLowerCase("de-CH").includes(slashQuery))
+                  .filter(command => slashCommandMatches(command, slashQuery))
                   .map(command => (
                     <button
                       key={command.query}
@@ -1005,7 +1084,7 @@ export default function App() {
                         runSlashCommand(command.query);
                       }}
                     >
-                      <strong>/{command.query}</strong><span>{command.hint}</span>
+                      <strong>/{command.query}</strong><span>{command.category} · {command.hint}</span>
                     </button>
                   ))}
               </div>
@@ -1019,6 +1098,7 @@ export default function App() {
               onInput={updateSlashMenu}
               onKeyDown={handleEditorKeyDown}
               onPaste={handleEditorPaste}
+              onDoubleClick={handleEditorDoubleClick}
             />
             <input ref={imageInputRef} className="hidden-input" type="file" accept="image/*" onChange={handleImageSelected}/>
           </section>
@@ -1102,7 +1182,7 @@ export default function App() {
               setContextMenu(null);
             }}><Heart size={15}/> {menuNote.favorite ? "Favorit entfernen" : "Zu Favoriten"}</button>
             <button onClick={() => { duplicateNote(menuNote.id); setContextMenu(null); }}><FilePlus2 size={15}/> Duplizieren</button>
-            <button onClick={() => { void exportTxt(data.courses.find(course => course.id === menuNote.courseId)); setContextMenu(null); }}><Download size={15}/> ÜK als TXT exportieren</button>
+            {menuNote.courseId && <button onClick={() => { void exportTxt(data.courses.find(course => course.id === menuNote.courseId)); setContextMenu(null); }}><Download size={15}/> ÜK als TXT exportieren</button>}
             <button onClick={() => {
               setData(current => ({
                 ...current,
@@ -1140,12 +1220,106 @@ export default function App() {
             </div>
             <label className="field">Dein Name<input value={data.settings.name} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, name: event.target.value } }))}/></label>
             <label className="field">Groq API-Key<input type="password" value={data.settings.apiKey} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, apiKey: event.target.value } }))} placeholder="gsk_…"/><small>Wird nur lokal auf deinem Gerät gespeichert.</small></label>
+            <button className="secondary full tutorial-settings-button" onClick={() => { setSettingsOpen(false); setTutorialStep(0); setTutorialOpen(true); }}><HelpCircle size={16}/> Kurzes Tutorial anzeigen</button>
             <button className="primary full" onClick={() => { setSettingsOpen(false); setToast("Einstellungen gespeichert"); }}>Speichern</button>
           </div>
         </div>
       )}
 
+      {flowchartDraft && (
+        <div className="modal-backdrop flowchart-backdrop">
+          <FlowchartEditor
+            initial={flowchartDraft}
+            onCancel={() => { setFlowchartDraft(null); setEditingFlowchartId(null); }}
+            onSave={saveFlowchart}
+          />
+        </div>
+      )}
+
+      {tutorialOpen && (
+        <TutorialOverlay
+          step={tutorialStep}
+          setStep={setTutorialStep}
+          onClose={() => {
+            setTutorialOpen(false);
+            setData(current => ({ ...current, settings: { ...current.settings, tutorialSeen: true } }));
+          }}
+        />
+      )}
+
       {toast && <div className="toast"><Check size={16}/>{toast}</div>}
+    </div>
+  );
+}
+
+
+function TutorialOverlay({
+  step,
+  setStep,
+  onClose
+}: {
+  step: number;
+  setStep: (value: number) => void;
+  onClose: () => void;
+}) {
+  const slides = [
+    {
+      icon: <Layers3 size={30}/>,
+      eyebrow: "1 · ÜKs",
+      title: "Alles pro ÜK gesammelt",
+      text: "Erstelle links einen ÜK und darin beliebig viele Notizen. Am Ende exportierst du den ganzen ÜK als Word-Dokument."
+    },
+    {
+      icon: <Zap size={30}/>,
+      eyebrow: "2 · Schnellnotizen",
+      title: "Nicht alles braucht einen ÜK",
+      text: "Mit Schnellnotizen hältst du spontane Gedanken, Aufgaben oder Infos fest. Später kannst du sie über die Auswahl oben einem ÜK zuordnen."
+    },
+    {
+      icon: <Workflow size={30}/>,
+      eyebrow: "3 · Slash-Menü",
+      title: "Tippe / im Editor",
+      text: "Mit / fügst du Tabellen, Checklisten, Infoboxen, Code, Spalten, Bilder und Flowcharts ein. Flowcharts lassen sich per Drag & Drop bearbeiten und verbinden."
+    },
+    {
+      icon: <Sparkles size={30}/>,
+      eyebrow: "4 · KI",
+      title: "Die KI kann direkt mitarbeiten",
+      text: "Sie kann erklären, zusammenfassen, Texte verbessern sowie ÜKs und Notizen anlegen. Du kannst auch ausdrücklich eine Schnellnotiz erstellen lassen."
+    }
+  ];
+
+  const current = slides[Math.min(step, slides.length - 1)];
+
+  return (
+    <div className="modal-backdrop tutorial-backdrop">
+      <div className="tutorial-card">
+        <div className="tutorial-top">
+          <div className="tutorial-icon">{current.icon}</div>
+          <button className="icon-button" onClick={onClose} title="Tutorial schliessen"><X size={19}/></button>
+        </div>
+        <span className="eyebrow">{current.eyebrow}</span>
+        <h2>{current.title}</h2>
+        <p>{current.text}</p>
+
+        <div className="tutorial-dots">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              className={index === step ? "active" : ""}
+              aria-label={"Tutorial Schritt " + (index + 1)}
+              onClick={() => setStep(index)}
+            />
+          ))}
+        </div>
+
+        <div className="tutorial-actions">
+          <button className="secondary" disabled={step === 0} onClick={() => setStep(Math.max(0, step - 1))}>Zurück</button>
+          {step < slides.length - 1
+            ? <button className="primary" onClick={() => setStep(step + 1)}>Weiter</button>
+            : <button className="primary" onClick={onClose}><Check size={16}/> Los geht’s</button>}
+        </div>
+      </div>
     </div>
   );
 }

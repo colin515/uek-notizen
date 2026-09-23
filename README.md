@@ -7,10 +7,12 @@ Eine ruhige, Notion-inspirierte Desktop-App für Schweizer ÜK-Lernende.
 ## Funktionen
 
 - Lokale Notizen ohne Anmeldung oder Cloud-Pflicht
-- Kurse, Tags, Favoriten, Archiv und Volltextsuche
+- ÜKs, Schnellnotizen ohne ÜK, Tags, Favoriten, Archiv und Volltextsuche
+- Erweitertes Slash-Menü mit Tabellen, Infoboxen, Code, Spalten, Bildern und Flowcharts
+- Interaktiver Flowchart-Editor mit Drag & Drop und Verbindungen
 - Formatierter Editor und DOCX-Export
-- Optionaler Groq-KI-Assistent: Zusammenfassen, Erklären, Verbessern, Lernfragen
-- Heller und dunkler Modus
+- Optionaler Groq-KI-Assistent: Zusammenfassen, Erklären, Verbessern, Lernfragen sowie ÜKs und Notizen direkt erstellen
+- Heller und dunkler Modus mit kurzem Onboarding-Tutorial
 - Windows- und macOS-Builds über GitHub Actions
 - Download-Seite über GitHub Pages
 
@@ -23,7 +25,7 @@ npm run tauri dev
 
 ## Veröffentlichung
 
-Ein Tag wie `v1.0.0` startet automatisch die Windows- und macOS-Builds und erstellt ein GitHub Release. Die Download-Seite liest die Release-Dateien automatisch ein.
+Ein erfolgreicher Push auf `main` startet automatisch die Windows- und macOS-Builds und erstellt ein versioniertes GitHub Release. Die Download-Seite wird danach automatisch auf diese Version aktualisiert.
 
 ## Datenschutz
 
