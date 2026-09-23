@@ -7,10 +7,12 @@ Eine ruhige, Notion-inspirierte Desktop-App für Schweizer ÜK-Lernende.
 ## Funktionen
 
 - Lokale Notizen ohne Anmeldung oder Cloud-Pflicht
-- Kurse, Tags, Favoriten, Archiv und Volltextsuche
+- ÜKs, Schnellnotizen ohne ÜK, Tags, Favoriten, Archiv und Volltextsuche
+- Erweitertes Slash-Menü mit Tabellen, Infoboxen, Code, Spalten, Bildern und Flowcharts
+- Interaktiver Flowchart-Editor mit Drag & Drop und Verbindungen
 - Formatierter Editor und DOCX-Export
-- Optionaler Groq-KI-Assistent: Zusammenfassen, Erklären, Verbessern, Lernfragen
-- Heller und dunkler Modus
+- Optionaler Groq-KI-Assistent: Zusammenfassen, Erklären, Verbessern, Lernfragen sowie ÜKs und Notizen direkt erstellen
+- Heller und dunkler Modus mit kurzen Onboarding-Tutorial
 - Windows- und macOS-Builds über GitHub Actions
 - Download-Seite über GitHub Pages
 
