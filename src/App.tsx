@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, GraduationCap, Heart, HelpCircle, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, Workflow, X, Zap } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { askAi, askAiChat, testAiConnection, type AiAction, type AiChatResult, type AiConnection } from "./ai";
@@ -76,6 +77,15 @@ function searchScore(note: Note, course: Course | undefined, query: string): num
 
 function stripHtml(html: string): string {
   return new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+}
+
+async function openExternalUrl(url: string): Promise<void> {
+  if ("__TAURI_INTERNALS__" in window) {
+    await openUrl(url);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function escapeHtml(value: string): string {
@@ -1322,7 +1332,7 @@ export default function App() {
               <div className="ai-missing-key">
                 <div><HelpCircle size={16}/><span><strong>{activeAiProvider.keyLabel} fehlt</strong><small>Richte {activeAiProvider.shortLabel} einmal ein, danach funktionieren Chat und Schnellaktionen.</small></span></div>
                 <div>
-                  <button className="secondary" onClick={() => window.open(aiTutorialUrl(data.settings.aiProvider), "_blank", "noopener,noreferrer")}>Anleitung öffnen</button>
+                  <button className="secondary" onClick={() => void openExternalUrl(aiTutorialUrl(data.settings.aiProvider)).catch(() => setToast("API-Anleitung konnte nicht geöffnet werden"))}>Anleitung öffnen</button>
                   <button className="secondary" onClick={() => { setAiOpen(false); setSettingsOpen(true); }}>Key eingeben</button>
                 </div>
               </div>
@@ -1526,7 +1536,7 @@ export default function App() {
               <div className="ai-settings-actions">
                 <button
                   className="secondary"
-                  onClick={() => window.open(aiTutorialUrl(data.settings.aiProvider), "_blank", "noopener,noreferrer")}
+                  onClick={() => void openExternalUrl(aiTutorialUrl(data.settings.aiProvider)).catch(() => setToast("API-Anleitung konnte nicht geöffnet werden"))}
                 ><HelpCircle size={15}/> API-Anleitung öffnen</button>
                 <button
                   className={"secondary ai-test-button " + aiTestState}
@@ -1784,7 +1794,7 @@ function Onboarding({
 
           <button
             className="secondary full ai-tutorial-link"
-            onClick={() => window.open(aiTutorialUrl(setup.aiProvider), "_blank", "noopener,noreferrer")}
+            onClick={() => void openExternalUrl(aiTutorialUrl(setup.aiProvider)).catch(error => { setConnectionState("error"); setConnectionMessage(error instanceof Error ? error.message : "API-Anleitung konnte nicht geöffnet werden."); })}
           ><HelpCircle size={16}/> {provider.shortLabel} Schritt für Schritt einrichten</button>
 
           <button
