@@ -6,6 +6,15 @@ export interface Settings {
   theme: Theme;
   onboarded: boolean;
   tutorialSeen: boolean;
+  educationProfileId: string;
+}
+
+export interface CourseAssessment {
+  id: string;
+  title: string;
+  topic: string;
+  weight: number;
+  grade: number | null;
 }
 
 export interface Course {
@@ -13,6 +22,12 @@ export interface Course {
   number: string;
   title: string;
   createdAt: string;
+  catalogModuleNumber?: string;
+  moduleField?: string;
+  moduleTopics?: string[];
+  moduleSummary?: string;
+  isCustom?: boolean;
+  assessments?: CourseAssessment[];
 }
 
 export interface Note {
