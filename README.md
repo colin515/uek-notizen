@@ -19,7 +19,7 @@ Eine ruhige, Notion-inspirierte Desktop-App für Schweizer ÜK-Lernende.
 - Erweitertes Slash-Menü mit Tabellen, Infoboxen, Code, Spalten, Bildern und Flowcharts
 - Interaktiver Flowchart-Editor mit Drag & Drop und Verbindungen
 - Formatierter Editor und DOCX-Export
-- Optionaler Groq-KI-Assistent: Zusammenfassen, Erklären, Verbessern, Lernfragen sowie ÜKs und Notizen direkt erstellen
+- Optionaler KI-Assistent mit GroqCloud, OpenAI API oder Google Gemini: Anbieter und Modell wählen, Verbindung testen, zusammenfassen, erklären, verbessern, Lernfragen sowie ÜKs und Notizen direkt erstellen
 - Heller und dunkler Modus mit Onboarding-Tutorial
 - Windows- und macOS-Builds über GitHub Actions
 - Download-Seite über GitHub Pages
@@ -41,4 +41,4 @@ Ein erfolgreicher Push auf `main` startet automatisch die Windows- und macOS-Bui
 
 ## Datenschutz
 
-Notizen, Name, Ausbildung, Modul-/Notendaten und API-Key werden lokal im WebView-Speicher der App abgelegt. Beim Laden eines offiziellen Moduls wird nur die Modulnummer an die öffentliche Modulbaukasten-Datenquelle angefragt. Nur wenn eine KI-Funktion bewusst ausgeführt wird, wird der relevante Notizkontext zusammen mit dem API-Key direkt an die Groq API übertragen.
+Notizen, Name, Ausbildung, Modul-/Notendaten und API-Key werden lokal im WebView-Speicher der App abgelegt. Beim Laden eines offiziellen Moduls wird nur die Modulnummer an die öffentliche Modulbaukasten-Datenquelle angefragt. Nur wenn eine KI-Funktion bewusst ausgeführt wird, wird der relevante Notizkontext zusammen mit dem gewählten API-Key direkt an den ausgewählten Anbieter (GroqCloud, OpenAI oder Google Gemini) übertragen.
