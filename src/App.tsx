@@ -1298,8 +1298,12 @@ export default function App() {
       if (replacement) {
         replaceSlashCommand(editor, replacement);
         if (command === "code") {
-          const blocks = editor.querySelectorAll<HTMLElement>("pre.code-block code");
-          const code = blocks[blocks.length - 1];
+          const selection = window.getSelection();
+          const anchorNode = selection?.anchorNode ?? null;
+          const anchorElement = anchorNode instanceof HTMLElement
+            ? anchorNode
+            : anchorNode?.parentElement ?? null;
+          const code = anchorElement?.closest("pre.code-block code") as HTMLElement | null;
           if (code) highlightCodeElement(code);
         }
         patchNote({ content: editor.innerHTML });
