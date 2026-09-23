@@ -1527,7 +1527,7 @@ export default function App() {
                 <button
                   className="secondary"
                   onClick={() => window.open(aiTutorialUrl(data.settings.aiProvider), "_blank", "noopener,noreferrer")}
-                ><HelpCircle size={15}/> API einrichten</button>
+                ><HelpCircle size={15}/> API-Anleitung öffnen</button>
                 <button
                   className={"secondary ai-test-button " + aiTestState}
                   disabled={aiTestState === "loading" || !activeAiConnection.apiKey.trim()}
@@ -1545,7 +1545,6 @@ export default function App() {
                 >{aiTestState === "loading" ? "Teste…" : aiTestState === "ok" ? "Verbunden ✓" : aiTestState === "error" ? "Erneut testen" : "Verbindung testen"}</button>
               </div>
             </div>
-            <button className="secondary full tutorial-settings-button" onClick={() => { setSettingsOpen(false); setTutorialStep(0); setTutorialOpen(true); }}><HelpCircle size={16}/> App-Tutorial anzeigen</button>
             <button className="primary full" onClick={() => { setSettingsOpen(false); setToast("Einstellungen gespeichert"); }}>Speichern</button>
           </div>
         </div>
