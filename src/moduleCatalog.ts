@@ -245,11 +245,20 @@ export function findIctModule(value: string, profileId?: string): IctModule | un
 }
 
 export function modulesForProfile(profileId?: string): IctModule[] {
-  if (!profileId) return [...ICT_MODULES];
-  return [...ICT_MODULES].sort((a, b) => {
-    const aMatch = a.profiles.includes(profileId as ProfileId) ? 1 : 0;
-    const bMatch = b.profiles.includes(profileId as ProfileId) ? 1 : 0;
+  const ordered = [...ICT_MODULES].sort((a, b) => {
+    const aMatch = profileId && a.profiles.includes(profileId as ProfileId) ? 1 : 0;
+    const bMatch = profileId && b.profiles.includes(profileId as ProfileId) ? 1 : 0;
     return bMatch - aMatch || a.number.localeCompare(b.number, "de-CH", { numeric: true });
+  });
+
+  // Some official modules are shared by several professions. Keep only the
+  // profile-relevant variant in browse/search lists, while findIctModule()
+  // can still resolve the exact profile-specific metadata.
+  const seen = new Set<string>();
+  return ordered.filter(module => {
+    if (seen.has(module.number)) return false;
+    seen.add(module.number);
+    return true;
   });
 }
 
