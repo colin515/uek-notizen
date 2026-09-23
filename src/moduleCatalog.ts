@@ -271,7 +271,7 @@ export function modulesForProfile(profileId?: string): IctModule[] {
 }
 
 export function officialModuleUrl(module: IctModule): string {
-  return "https://www.modulbaukasten.ch/module/" + encodeURIComponent(module.number);
+  return "https://modulbaukasten.tie-international.com/module/" + encodeURIComponent(module.number);
 }
 
 function htmlEscape(value: string): string {
