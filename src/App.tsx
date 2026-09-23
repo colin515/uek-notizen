@@ -358,6 +358,65 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const candidates = data.courses.filter(course =>
+      course.catalogModuleNumber &&
+      !course.isCustom &&
+      !course.officialDataLoadedAt &&
+      !moduleEnrichmentRef.current.has(course.id)
+    );
+
+    for (const course of candidates) {
+      const number = course.catalogModuleNumber!;
+      moduleEnrichmentRef.current.add(course.id);
+      const fallback = findIctModule(number, data.settings.educationProfileId);
+
+      void fetchOfficialModuleBundle(number, fallback)
+        .then(official => {
+          if (!official) return;
+          const variants = official.assessmentVariants ?? [];
+          const firstVariant = variants[0];
+          const content = moduleStarterHtml(official);
+
+          setData(current => ({
+            ...current,
+            courses: current.courses.map(item => item.id === course.id
+              ? {
+                  ...item,
+                  number: "M" + official.number,
+                  title: official.title,
+                  catalogModuleNumber: official.number,
+                  moduleField: official.field,
+                  moduleTopics: official.topics,
+                  moduleSummary: official.summary,
+                  moduleCompetence: official.competence,
+                  moduleObject: official.object,
+                  moduleActionGoals: official.actionGoals,
+                  moduleKnowledge: official.knowledge,
+                  moduleDegrees: official.degrees,
+                  officialSourceUrl: official.sourceUrl,
+                  officialDataLoadedAt: new Date().toISOString(),
+                  assessmentVariants: variants,
+                  assessmentVariantId: item.assessmentVariantId ?? firstVariant?.id,
+                  assessments: item.assessments?.some(assessment => assessment.grade !== null)
+                    ? item.assessments
+                    : firstVariant?.assessments.map(assessment => ({ ...assessment, grade: null })) ?? []
+                }
+              : item),
+            notes: current.notes.map(note =>
+              note.courseId === course.id &&
+              /^Modul\s+.+\s+·\s+(Überblick|Komplettübersicht)$/.test(note.title)
+                ? { ...note, title: "Modul " + official.number + " · Komplettübersicht", content, updatedAt: new Date().toISOString() }
+                : note
+            )
+          }));
+        })
+        .catch(() => {
+          // Existing local data stays intact. The app can try again after a restart.
+        });
+    }
+  }, [data.courses, data.settings.educationProfileId]);
+
   const selectedCourse = data.courses.find(course => course.id === data.selectedCourseId) ?? null;
   const selected = data.notes.find(note => note.id === data.selectedNoteId) ?? null;
   const quickMode = filter === "quick";
