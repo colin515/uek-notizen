@@ -29,7 +29,7 @@ export function sampleNote(courseId: string): Note {
     id: createId(),
     title: "Willkommen bei ÜK Notizen",
     courseId,
-    content: `<h2>Deine erste Notiz</h2><p>Hier kannst du alles festhalten, was du im ÜK lernst.</p><ul><li>Formatiere Text mit der Leiste oben.</li><li>Ordne Notizen einem ÜK und Tags zu.</li><li>Nutze <strong>/</strong> für Tabellen, Infoboxen, Flowcharts und mehr.</li><li>Lass dir Inhalte mit der KI erklären oder zusammenfassen.</li><li>Exportiere deine ÜK-Notizen als DOCX.</li></ul><p>Für spontane Gedanken kannst du jederzeit eine Schnellnotiz ohne ÜK erstellen.</p>`,
+    content: `<h2>Deine erste Notiz</h2><p>Hier kannst du alles festhalten, was du im ÜK lernst.</p><ul><li>Formatiere Text mit der Leiste oben.</li><li>Ordne Notizen einem ÜK und Tags zu.</li><li>Nutze <strong>/</strong> für Tabellen, Infoboxen, Flowcharts und mehr.</li><li>Lass dir Inhalte mit der KI erklären oder zusammenfassen.</li><li>Exportiere deine ÜK-Notizen als DOCX.</li></ul><p>Für spontane Gedanken kannst du jederzeit eine Schnellnotiz ohne ÜK erstellen. Alles bleibt lokal auf diesem Gerät gespeichert.</p>`,
     tags: ["Start", "Beispiel"],
     favorite: true,
     archived: false,
