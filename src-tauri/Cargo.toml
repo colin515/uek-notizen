@@ -1,6 +1,6 @@
 [package]
 name = "uek-notizen"
-version = "1.5.1"
+version = "1.6.0"
 description = "Eine ruhige, lokale Notiz-App für Schweizer ÜK-Lernende"
 authors = ["Colin"]
 edition = "2021"
