@@ -1104,7 +1104,7 @@ export default function App() {
           const course = sampleCourse();
           const note = sampleNote(course.id);
           setData({
-            settings: { ...data.settings, ...setup, onboarded: true },
+            settings: { ...data.settings, ...setup, apiKey: setup.aiKeys.groq, onboarded: true },
             courses: [course],
             notes: [note],
             selectedCourseId: course.id,
@@ -1457,8 +1457,85 @@ export default function App() {
               </select>
               <small>Damit werden passende Module im Modulbaukasten zuerst angezeigt.</small>
             </label>
-            <label className="field">Groq API-Key<input type="password" value={data.settings.apiKey} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, apiKey: event.target.value } }))} placeholder="gsk_…"/><small>Wird nur lokal auf deinem Gerät gespeichert.</small></label>
-            <button className="secondary full tutorial-settings-button" onClick={() => { setSettingsOpen(false); setTutorialStep(0); setTutorialOpen(true); }}><HelpCircle size={16}/> Kurzes Tutorial anzeigen</button>
+            <div className="ai-settings-box">
+              <div className="ai-settings-heading">
+                <div><Sparkles size={17}/><strong>KI-Anbieter</strong></div>
+                <span>{activeAiProvider.description}</span>
+              </div>
+              <label className="field">Anbieter
+                <select
+                  value={data.settings.aiProvider}
+                  onChange={event => {
+                    const provider = event.target.value as AiProvider;
+                    setAiTestState("idle");
+                    setData(current => ({
+                      ...current,
+                      settings: {
+                        ...current.settings,
+                        aiProvider: provider,
+                        aiModel: defaultAiModel(provider)
+                      }
+                    }));
+                  }}
+                >
+                  {AI_PROVIDERS.map(provider => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
+                </select>
+              </label>
+              <label className="field">Modell
+                <select
+                  value={data.settings.aiModel}
+                  onChange={event => {
+                    setAiTestState("idle");
+                    setData(current => ({ ...current, settings: { ...current.settings, aiModel: event.target.value } }));
+                  }}
+                >
+                  {activeAiProvider.models.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
+                </select>
+                <small>{activeAiProvider.models.find(model => model.id === data.settings.aiModel)?.description}</small>
+              </label>
+              <label className="field">{activeAiProvider.keyLabel}
+                <input
+                  type="password"
+                  value={data.settings.aiKeys[data.settings.aiProvider] ?? ""}
+                  onChange={event => {
+                    const value = event.target.value;
+                    setAiTestState("idle");
+                    setData(current => ({
+                      ...current,
+                      settings: {
+                        ...current.settings,
+                        apiKey: current.settings.aiProvider === "groq" ? value : current.settings.apiKey,
+                        aiKeys: { ...current.settings.aiKeys, [current.settings.aiProvider]: value }
+                      }
+                    }));
+                  }}
+                  placeholder={activeAiProvider.keyPlaceholder}
+                />
+                <small>Der Key wird lokal auf diesem Gerät gespeichert.</small>
+              </label>
+              <div className="ai-settings-actions">
+                <button
+                  className="secondary"
+                  onClick={() => window.open(aiTutorialUrl(data.settings.aiProvider), "_blank", "noopener,noreferrer")}
+                ><HelpCircle size={15}/> API einrichten</button>
+                <button
+                  className={"secondary ai-test-button " + aiTestState}
+                  disabled={aiTestState === "loading" || !activeAiConnection.apiKey.trim()}
+                  onClick={async () => {
+                    setAiTestState("loading");
+                    try {
+                      await testAiConnection(activeAiConnection);
+                      setAiTestState("ok");
+                      setToast(activeAiProvider.shortLabel + " ist verbunden");
+                    } catch (error) {
+                      setAiTestState("error");
+                      setToast(error instanceof Error ? error.message : String(error));
+                    }
+                  }}
+                >{aiTestState === "loading" ? "Teste…" : aiTestState === "ok" ? "Verbunden ✓" : aiTestState === "error" ? "Erneut testen" : "Verbindung testen"}</button>
+              </div>
+            </div>
+            <button className="secondary full tutorial-settings-button" onClick={() => { setSettingsOpen(false); setTutorialStep(0); setTutorialOpen(true); }}><HelpCircle size={16}/> App-Tutorial anzeigen</button>
             <button className="primary full" onClick={() => { setSettingsOpen(false); setToast("Einstellungen gespeichert"); }}>Speichern</button>
           </div>
         </div>
