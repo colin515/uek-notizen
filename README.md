@@ -10,18 +10,18 @@ Eine ruhige, Notion-inspirierte Desktop-App für Schweizer ÜK-Lernende.
 - ÜKs, Schnellnotizen ohne ÜK, Tags, Favoriten, Archiv und Volltextsuche
 - **Vollständiger ICT-Modulbaukasten:** Ausbildung wählen + Modulnummer eingeben; die App lädt Kompetenz, Objekt, Handlungsziele und handlungsnotwendige Kenntnisse aus der öffentlichen Modulbaukasten-Datenquelle
 - **Offizielle LBV automatisch:** veröffentlichte Prüfungselemente, Prüfungsstoff, Gewichtungen, Prüfungsform, Richtzeiten, Hilfsmittel und Bewertungskriterien werden übernommen und lokal im ÜK gespeichert
-- Bei offiziellen Modulen ist die Prüfungsstruktur inklusive publizierter Gewichtungen gesperrt – Lernende tragen im Normalfall nur noch ihre erreichten Noten ein
+- Bei offiziellen Modulen bleibt die publizierte LBV unverändert; Noten werden direkt eingetragen. Optionale lokale Zusatznachweise eines Bildungsinstituts können bis maximal 20% der Modulnote ergänzt werden
 - Bei mehreren veröffentlichten LBV-Varianten kann zwischen diesen offiziellen Varianten gewählt werden
 - Gewichtete Modulnote sowie aktueller Durchschnitt über alle benoteten ÜKs berechnen; 4.0 wird als Bestehensgrenze angezeigt
 - Bestehende offizielle ÜKs aus älteren Versionen werden automatisch mit den vollständigen Moduldaten angereichert
 - Eigene/custom ÜKs bleiben möglich und können mit eigenen Prüfungen, Themen und Gewichtungen gepflegt werden
 - Notiz-Templates für Tagesnotizen, Prüfungsvorbereitung, Cheatsheets, Arbeitsaufträge und Reflexion
 - **Blockbasierter Slash-Editor:** leere Überschriften, Listen, Checklisten, Zitate, Infoboxen, Spalten, Bilder und Flowcharts ohne Platzhaltertext
-- **Tabellen wie im Office-Editor:** Grösse über ein Raster wählen, Zeilen/Spalten hinzufügen oder löschen und Breite/Höhe direkt an Zellkanten verändern
+- **Tabellen wie im Office-Editor:** Grösse über ein 10×10-Raster wählen, Zeilen/Spalten hinzufügen, löschen, verschieben, gleichmässig verteilen und Breite/Höhe direkt an Zellkanten verändern
 - **Codeblöcke:** dunkle IDE-Darstellung, automatische Spracherkennung und Syntax-Highlighting für zahlreiche Sprachen
 - Interaktiver Flowchart-Editor mit Drag & Drop und Verbindungen
 - Formatierter Editor und DOCX-Export
-- **Kontext-KI:** Text markieren und direkt fragen oder verbessern lassen
+- **Kontext-KI:** Text markieren und direkt fragen, erklären, verbessern oder in Tabelle/Flowchart umwandeln lassen
 - Optionaler KI-Assistent mit GroqCloud, OpenAI API oder Google Gemini: mehrere ÜKs/Notizen in einem Prompt erstellen, Tabellen, Code und Flowcharts über ein strukturiertes Text-Befehlssystem erzeugen sowie Noten in bestehende Leistungsnachweise eintragen
 - Heller und dunkler Modus mit Onboarding-Tutorial
 - Windows- und macOS-Builds über GitHub Actions
