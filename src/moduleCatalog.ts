@@ -384,6 +384,7 @@ export function moduleStarterHtml(module: IctModule): string {
         ).join("");
         return "<h3>" + htmlEscape(variant.title) + "</h3>" +
           (variant.description ? "<p>" + htmlEscape(variant.description) + "</p>" : "") +
+          (variant.learningLocations?.length ? "<p><strong>Lernort:</strong> " + htmlEscape(variant.learningLocations.join(", ")) + "</p>" : "") +
           (variant.totalDuration ? "<p><strong>Richtzeit:</strong> " + htmlEscape(variant.totalDuration) + "</p>" : "") +
           "<table class=\"note-table\"><thead><tr><th>Leistungsnachweis</th><th>Inhalt</th><th>Gewichtung</th><th>Form / Zeit</th></tr></thead><tbody>" + rows + "</tbody></table>";
       }).join("")
