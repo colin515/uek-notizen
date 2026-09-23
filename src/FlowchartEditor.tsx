@@ -37,6 +37,48 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+export type FlowchartSpec = {
+  title?: string;
+  nodes: Array<{ key: string; text: string }>;
+  edges?: Array<{ from: string; to: string }>;
+};
+
+export function createFlowchartFromSpec(spec: FlowchartSpec): FlowchartData {
+  const safeNodes = spec.nodes.slice(0, 18);
+  const columns = Math.min(3, Math.max(1, safeNodes.length));
+  const horizontalGap = 220;
+  const verticalGap = 100;
+  const keyToId = new Map<string, string>();
+
+  const nodes = safeNodes.map((node, index) => {
+    const nodeId = id();
+    keyToId.set(node.key, nodeId);
+    return {
+      id: nodeId,
+      text: node.text.trim() || "Schritt",
+      x: 46 + (index % columns) * horizontalGap,
+      y: 64 + Math.floor(index / columns) * verticalGap
+    };
+  });
+
+  const edges = (spec.edges ?? [])
+    .map(edge => ({
+      from: keyToId.get(edge.from) ?? "",
+      to: keyToId.get(edge.to) ?? ""
+    }))
+    .filter(edge => edge.from && edge.to && edge.from !== edge.to);
+
+  const rows = Math.max(1, Math.ceil(nodes.length / columns));
+  return {
+    id: id(),
+    title: spec.title?.trim() || "Flowchart",
+    width: Math.max(540, 92 + columns * horizontalGap),
+    height: Math.max(280, 130 + rows * verticalGap),
+    nodes,
+    edges
+  };
+}
+
 export function createFlowchart(): FlowchartData {
   const first = id();
   const second = id();
