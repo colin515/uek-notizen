@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="description" content="Schritt-für-Schritt-Anleitung für GroqCloud, OpenAI API und Google Gemini in ÜK Notizen." />
+  <title>KI einrichten · ÜK Notizen</title>
+  <link rel="stylesheet" href="ai-setup.css" />
+</head>
+<body>
+  <main class="guide-shell">
+    <header class="guide-header">
+      <a class="brand" href="javascript:window.close()" aria-label="Tutorial schliessen"><span>ÜK</span> Notizen</a>
+      <div class="header-copy">
+        <span class="eyebrow">KI EINRICHTEN</span>
+        <h1>API-Key in wenigen Schritten.</h1>
+        <p>Wähle deinen Anbieter. Die Anleitung zeigt dir visuell, wo du klicken musst und was du danach in ÜK Notizen einträgst.</p>
+      </div>
+      <div class="security-note"><span>🔒</span><div><b>Keys geheim halten</b><small>Nie in Chats, Screenshots oder öffentliche Repositories kopieren.</small></div></div>
+    </header>
+
+    <nav class="provider-tabs" aria-label="KI-Anbieter">
+      <button data-provider="groq"><span class="provider-logo groq">G</span><div><b>GroqCloud</b><small>schnell & einfach</small></div></button>
+      <button data-provider="openai"><span class="provider-logo openai">O</span><div><b>OpenAI API</b><small>ChatGPT-Modelle per API</small></div></button>
+      <button data-provider="gemini"><span class="provider-logo gemini">◆</span><div><b>Google Gemini</b><small>über Google AI Studio</small></div></button>
+    </nav>
+
+    <section class="guide-card">
+      <aside class="steps-nav" id="steps-nav"></aside>
+
+      <article class="step-content">
+        <div class="step-top">
+          <div>
+            <span id="step-kicker">SCHRITT 1</span>
+            <h2 id="step-title">Anbieter öffnen</h2>
+          </div>
+          <span id="step-count">1 / 4</span>
+        </div>
+
+        <p id="step-text"></p>
+
+        <div class="visual-frame" id="step-visual" aria-label="Visuelle Anleitung"></div>
+
+        <div class="step-tip" id="step-tip"></div>
+
+        <div class="step-actions">
+          <a id="official-link" class="official-link" href="#" target="_blank" rel="noreferrer">Offizielle Seite öffnen ↗</a>
+          <div>
+            <button id="prev-step" class="secondary">Zurück</button>
+            <button id="next-step" class="primary">Weiter</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="provider-note" id="provider-note"></section>
+
+    <footer>
+      <span>Diese Seite ist absichtlich nicht in der Download-Navigation verlinkt.</span>
+      <span>ÜK Notizen · 2026</span>
+    </footer>
+  </main>
+
+  <script src="ai-setup.js?v=1.0.0"></script>
+</body>
+</html>
