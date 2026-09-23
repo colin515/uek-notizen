@@ -84,7 +84,7 @@ function ModuleResult({ module }: { module: IctModule }) {
           {variants.map(variant => (
             <div className="lbv-preview" key={variant.id}>
               <strong>{variant.title}</strong>
-              {variant.totalDuration && <small>Richtzeit {variant.totalDuration}</small>}
+              {variant.totalDuration && <small>Richtzeit {variant.totalDuration}</small>}{!!variant.learningLocations?.length && <small>Lernort: {variant.learningLocations.join(", ")}</small>}
               {variant.assessments.map(assessment => (
                 <div className="lbv-preview-row" key={assessment.id}>
                   <span>{assessment.title}</span>
@@ -338,7 +338,7 @@ export default function ModuleHub({
                         <div className="official-variant-row">
                           <label>Offizielle LBV
                             <select value={course.assessmentVariantId ?? course.assessmentVariants?.[0]?.id ?? ""} onChange={event => selectAssessmentVariant(course, event.target.value)}>
-                              {course.assessmentVariants?.map(variant => <option key={variant.id} value={variant.id}>{variant.title}{variant.totalDuration ? " · " + variant.totalDuration : ""}</option>)}
+                              {course.assessmentVariants?.map(variant => <option key={variant.id} value={variant.id}>{variant.title}{variant.learningLocations?.length ? " · " + variant.learningLocations.join(", ") : ""}{variant.totalDuration ? " · " + variant.totalDuration : ""}</option>)}
                             </select>
                           </label>
                           <span>Wähle die offizielle Variante, die dein ÜK-Anbieter verwendet.</span>
