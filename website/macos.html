@@ -64,7 +64,7 @@
       border-radius: 12px;
       padding: 32px;
       margin-bottom: 28px;
-      background: #fff;
+      background: rgba(248,251,255,.62);\n      backdrop-filter: blur(24px) saturate(150%);\n      box-shadow: var(--shadow-soft);
     }
     .step-badge {
       display: inline-block;
@@ -155,9 +155,9 @@
     <div class="download-banner">
       <div class="download-banner-text">
         <strong>Download für macOS (Apple Silicon M1/M2/M3/M4 & Intel)</strong>
-        <span id="dl-status">Version v1.6.0 · Direkte DMG-Datei</span>
+        <span id="dl-status">Version v1.7.0 · Direkte DMG-Datei</span>
       </div>
-      <a id="guide-dl-btn" class="button primary" href="https://github.com/colin515/uek-notizen/releases/download/v1.6.0/UEK-Notizen-macOS.dmg">
+      <a id="guide-dl-btn" class="button primary" href="https://github.com/colin515/uek-notizen/releases/download/v1.7.0/UEK-Notizen-macOS.dmg">
         DMG herunterladen ↓
       </a>
     </div>
@@ -221,9 +221,9 @@
   </footer>
 
   <script>
-    // Bevorzugt v1.7.0 und fällt auf die letzten stabilen Releases zurück.
+    // Bevorzugt v1.8.0 und fällt auf die letzten stabilen Releases zurück.
     (async () => {
-      for (const tag of ['v1.7.0', 'v1.6.0', 'v1.5.1']) {
+      for (const tag of ['v1.8.0', 'v1.7.0', 'v1.6.0']) {
         try {
           const res = await fetch('https://api.github.com/repos/colin515/uek-notizen/releases/tags/' + tag);
           if (!res.ok) continue;
