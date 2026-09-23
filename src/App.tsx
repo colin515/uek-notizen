@@ -1098,6 +1098,55 @@ export default function App() {
           continue;
         }
 
+        if (action.type === "duplicate_note") {
+          const noteId = resolveNoteId(action.noteId);
+          const source = notes.find(note => note.id === noteId);
+          if (!source) continue;
+          const duplicate = {
+            ...createNote(source.courseId, action.title?.trim() || source.title + " – Kopie", source.content),
+            tags: [...source.tags],
+            favorite: source.favorite
+          };
+          notes.unshift(duplicate);
+          selectedCourseId = duplicate.courseId;
+          selectedNoteId = duplicate.id;
+          createdNoteId = duplicate.id;
+          continue;
+        }
+
+        if (action.type === "set_note_tags") {
+          const noteId = resolveNoteId(action.noteId);
+          if (!noteId) continue;
+          const tags = action.tags.map(tag => tag.trim()).filter(Boolean).slice(0, 12);
+          notes = notes.map(note => note.id === noteId
+            ? { ...note, tags, updatedAt: new Date().toISOString() }
+            : note
+          );
+          continue;
+        }
+
+        if (action.type === "delete_note") {
+          const noteId = resolveNoteId(action.noteId);
+          if (!noteId || action.confirmed !== true) continue;
+          notes = notes.filter(note => note.id !== noteId);
+          if (selectedNoteId === noteId) {
+            selectedNoteId = notes.find(note => note.courseId === selectedCourseId && !note.archived)?.id ?? null;
+          }
+          continue;
+        }
+
+        if (action.type === "delete_course") {
+          const courseId = resolveCourseId(action.courseId);
+          if (!courseId || action.confirmed !== true) continue;
+          courses = courses.filter(course => course.id !== courseId);
+          notes = notes.filter(note => note.courseId !== courseId);
+          if (selectedCourseId === courseId) {
+            selectedCourseId = courses[0]?.id ?? null;
+            selectedNoteId = notes.find(note => note.courseId === selectedCourseId && !note.archived)?.id ?? null;
+          }
+          continue;
+        }
+
         if (action.type === "set_grade") {
           const courseId = resolveCourseId(action.courseId);
           if (!courseId) continue;
