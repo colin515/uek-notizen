@@ -1,4 +1,4 @@
-import type { AiProvider, AppData, Course, Note } from "./types";
+import type { AiProvider, AppData, Course, Note, Settings } from "./types";
 import { defaultAiModel } from "./aiProviders";
 
 const KEY = "uek-notizen-data-v1";
@@ -105,7 +105,7 @@ export function loadData(): AppData {
       ? parsed.selectedNoteId
       : null;
 
-    const parsedSettings = parsed.settings ?? {};
+    const parsedSettings: Partial<Settings> = parsed.settings ?? {};
     const validProviders: AiProvider[] = ["groq", "openai", "gemini"];
     const aiProvider = validProviders.includes(parsedSettings.aiProvider as AiProvider)
       ? parsedSettings.aiProvider as AiProvider
