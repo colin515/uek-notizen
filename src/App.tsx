@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, GraduationCap, Heart, HelpCircle, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, Workflow, X, Zap } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { askGroq, askGroqChat, type AiAction, type AiChatResult } from "./ai";
+import { askAi, askAiChat, testAiConnection, type AiAction, type AiChatResult, type AiConnection } from "./ai";
 import { exportCourseDocx } from "./docxExport";
 import { exportCourseTxt } from "./txtExport";
 import { createId, loadData, sampleCourse, sampleNote, saveData } from "./storage";
@@ -11,7 +11,8 @@ import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchar
 import ModuleHub from "./ModuleHub";
 import { ICT_PROFILES, findIctModule, moduleStarterHtml, normalizeModuleNumber, type IctModule } from "./moduleCatalog";
 import { fetchOfficialModuleBundle } from "./officialModuleData";
-import type { AppData, Course, Note } from "./types";
+import { AI_PROVIDERS, aiProviderDefinition, aiTutorialUrl, defaultAiModel } from "./aiProviders";
+import type { AiProvider, AppData, Course, Note } from "./types";
 
 type Filter = "course" | "quick" | "favorites" | "archive";
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -316,7 +317,14 @@ export default function App() {
     { role: "assistant", content: "Ich kann in ÜK Notizen nicht nur antworten, sondern auch ÜKs und Notizen erstellen, Texte verbessern und Inhalte direkt in deinem Dokument ändern. Sag mir einfach, was ich machen soll." }
   ]);
   const [toast, setToast] = useState("");
-  const [setup, setSetup] = useState({ name: data.settings.name, apiKey: data.settings.apiKey, educationProfileId: data.settings.educationProfileId });
+  const [aiTestState, setAiTestState] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [setup, setSetup] = useState({
+    name: data.settings.name,
+    educationProfileId: data.settings.educationProfileId,
+    aiProvider: data.settings.aiProvider,
+    aiModel: data.settings.aiModel,
+    aiKeys: { ...data.settings.aiKeys }
+  });
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [editorSyncVersion, setEditorSyncVersion] = useState(0);
@@ -421,6 +429,12 @@ export default function App() {
   const selected = data.notes.find(note => note.id === data.selectedNoteId) ?? null;
   const quickMode = filter === "quick";
   const recognizedDraftModule = findIctModule(courseDraft.number, data.settings.educationProfileId);
+  const activeAiProvider = aiProviderDefinition(data.settings.aiProvider);
+  const activeAiConnection: AiConnection = {
+    provider: data.settings.aiProvider,
+    model: data.settings.aiModel,
+    apiKey: data.settings.aiKeys[data.settings.aiProvider] ?? ""
+  };
 
   const courseLabel = (courseId: string | null) => {
     if (!courseId) return "Schnellnotiz";
@@ -753,7 +767,7 @@ export default function App() {
     setChatMessages(messages => [...messages, { role: "user", content: labels[action] + " für die aktuelle Notiz" }]);
 
     try {
-      const result = await askGroq(data.settings.apiKey, action, selected.content);
+      const result = await askAi(activeAiConnection, action, selected.content);
 
       if (action === "improve") {
         replaceNoteContent(selected.id, result);
@@ -913,7 +927,7 @@ export default function App() {
     setChatMessages(messages => [...messages, { role: "user", content: message }]);
 
     try {
-      const result = await askGroqChat(data.settings.apiKey, message, buildAiContext());
+      const result = await askAiChat(activeAiConnection, message, buildAiContext());
       const reply = applyAiActions(result);
       setChatMessages(messages => [...messages, { role: "assistant", content: reply }]);
     } catch (error) {
@@ -1300,7 +1314,7 @@ export default function App() {
         <div className="drawer-backdrop" onMouseDown={event => event.target === event.currentTarget && setAiOpen(false)}>
           <aside className="ai-drawer">
             <div className="drawer-header">
-              <div><Bot size={20}/><strong>KI-Assistent</strong></div>
+              <div><Bot size={20}/><strong>KI-Assistent · {activeAiProvider.shortLabel}</strong></div>
               <button className="icon-button" onClick={() => setAiOpen(false)}><X size={19}/></button>
             </div>
 
