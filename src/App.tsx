@@ -234,6 +234,21 @@ function replaceSlashCommand(root: HTMLElement, replacementHtml: string): boolea
   selection?.removeAllRanges();
   selection?.addRange(range);
   document.execCommand("insertHTML", false, replacementHtml);
+
+  const marker = root.querySelector('[data-slash-caret="true"]');
+  if (marker?.parentNode) {
+    const parent = marker.parentNode;
+    const index = Array.prototype.indexOf.call(parent.childNodes, marker);
+    marker.remove();
+
+    const caretRange = document.createRange();
+    caretRange.setStart(parent, Math.max(0, index));
+    caretRange.collapse(true);
+    const caretSelection = window.getSelection();
+    caretSelection?.removeAllRanges();
+    caretSelection?.addRange(caretRange);
+  }
+
   return true;
 }
 
@@ -1362,8 +1377,12 @@ export default function App() {
       if (replacement) {
         replaceSlashCommand(editor, replacement);
         if (command === "code") {
-          const blocks = editor.querySelectorAll<HTMLElement>("pre.code-block code");
-          const code = blocks[blocks.length - 1];
+          const selection = window.getSelection();
+          const anchorNode = selection?.anchorNode ?? null;
+          const anchorElement = anchorNode instanceof HTMLElement
+            ? anchorNode
+            : anchorNode?.parentElement ?? null;
+          const code = anchorElement?.closest("pre.code-block code") as HTMLElement | null;
           if (code) highlightCodeElement(code);
         }
         focusInsertedSlashBlock(editor, command);
@@ -1411,8 +1430,14 @@ export default function App() {
   };
 
   const handleEditorInput = (event: React.FormEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement;
-    const code = target.closest("pre.code-block code") as HTMLElement | null;
+    const selection = window.getSelection();
+    const anchorNode = selection?.anchorNode ?? null;
+    const anchorElement = anchorNode instanceof HTMLElement
+      ? anchorNode
+      : anchorNode?.parentElement ?? null;
+    const eventTarget = event.target instanceof HTMLElement ? event.target : null;
+    const code = (anchorElement?.closest("pre.code-block code") ??
+      eventTarget?.closest("pre.code-block code")) as HTMLElement | null;
 
     if (code) {
       highlightCodeElement(code);
