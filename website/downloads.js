@@ -1,6 +1,6 @@
 const repository = "colin515/uek-notizen";
-const preferredRelease = "v1.1.13";
-const safeFallbackRelease = "v1.1.13";
+const preferredRelease = "v1.2.0";
+const safeFallbackRelease = "v1.2.0";
 
 function applyRelease(release) {
   const assets = release.assets || [];
