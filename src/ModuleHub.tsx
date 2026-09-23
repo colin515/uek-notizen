@@ -327,6 +327,8 @@ export default function ModuleHub({
                 {data.courses.map(course => {
                   const result = courseGrade(course);
                   const weightTotal = (course.assessments ?? []).reduce((sum, item) => sum + item.weight, 0);
+                  const activeVariant = course.assessmentVariants?.find(variant => variant.id === course.assessmentVariantId)
+                    ?? course.assessmentVariants?.[0];
                   return (
                     <article className="grade-course-card" key={course.id}>
                       <header>
@@ -338,10 +340,37 @@ export default function ModuleHub({
                         <div className="official-variant-row">
                           <label>Offizielle LBV
                             <select value={course.assessmentVariantId ?? course.assessmentVariants?.[0]?.id ?? ""} onChange={event => selectAssessmentVariant(course, event.target.value)}>
-                              {course.assessmentVariants?.map(variant => <option key={variant.id} value={variant.id}>{variant.title}{variant.totalDuration ? " · " + variant.totalDuration : ""}</option>)}
+                              {course.assessmentVariants?.map(variant => (
+                                <option key={variant.id} value={variant.id}>
+                                  {variant.title}
+                                  {variant.learningLocations?.length ? " · " + variant.learningLocations.join(", ") : ""}
+                                  {variant.totalDuration ? " · " + variant.totalDuration : ""}
+                                </option>
+                              ))}
                             </select>
                           </label>
                           <span>Wähle die offizielle Variante, die dein ÜK-Anbieter verwendet.</span>
+                        </div>
+                      )}
+
+                      {!course.isCustom && activeVariant && (
+                        <div className="lbv-source-row">
+                          <div>
+                            <strong>{activeVariant.title}</strong>
+                            {!!activeVariant.learningLocations?.length && <span>Lernort: {activeVariant.learningLocations.join(", ")}</span>}
+                            {activeVariant.totalDuration && <span>Richtzeit: {activeVariant.totalDuration}</span>}
+                          </div>
+                          {activeVariant.sourceUrl && <a href={activeVariant.sourceUrl} target="_blank" rel="noreferrer">Offizielle LBV öffnen ↗</a>}
+                        </div>
+                      )}
+
+                      {!!(course.assessments ?? []).length && (
+                        <div className="assessment-head">
+                          <span>Leistungsnachweis</span>
+                          <span>Prüfungsstoff</span>
+                          <span>Gewichtung</span>
+                          <span>Deine Note</span>
+                          <span></span>
                         </div>
                       )}
 
@@ -372,7 +401,18 @@ export default function ModuleHub({
                             />
                             <span>%</span>
                           </label>
-                          <input className="grade-input" type="number" min="1" max="6" step="0.1" value={assessment.grade ?? ""} onChange={event => patchAssessment(course, assessment.id, { grade: event.target.value === "" ? null : Math.min(6, Math.max(1, numberValue(event.target.value) ?? 1)) })} placeholder="Note"/>
+                          <input
+                            className="grade-input"
+                            type="number"
+                            min="1"
+                            max="6"
+                            step="0.1"
+                            value={assessment.grade ?? ""}
+                            onChange={event => patchAssessment(course, assessment.id, { grade: event.target.value === "" ? null : Math.min(6, Math.max(1, numberValue(event.target.value) ?? 1)) })}
+                            placeholder="1.0–6.0"
+                            aria-label={"Deine Note für " + assessment.title}
+                            title="Deine Note eintragen"
+                          />
                           {assessment.locked
                             ? <span className="official-lock" title="Offizielle LBV">fix</span>
                             : <button className="icon-button danger-soft" title="Leistungsbeurteilung löschen" onClick={() => removeAssessment(course, assessment.id)}><Trash2 size={15}/></button>}
@@ -400,7 +440,7 @@ export default function ModuleHub({
                           : <span className="official-lbv-badge"><CheckCircle2 size={14}/> Offizielle LBV · nur Noten eintragen</span>}
                         <span className={Math.abs(weightTotal - 100) < 0.01 ? "weight-ok" : "weight-warning"}>
                           {Math.abs(weightTotal - 100) < 0.01 ? <CheckCircle2 size={14}/> : <CircleAlert size={14}/>}
-                          Gewichtung: {weightTotal}%
+                          {course.isCustom ? "Gewichtung" : "LBV-Gewichtung"}: {weightTotal}%
                         </span>
                       </footer>
                     </article>
