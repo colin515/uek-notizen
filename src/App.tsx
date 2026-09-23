@@ -1994,12 +1994,7 @@ export default function App() {
       </main>
 
       {aiOpen && (
-        <div className="drawer-backdrop" onMouseDown={event => {
-          if (event.target !== event.currentTarget) return;
-          setAiOpen(false);
-          setSelectionTextForAi("");
-        }}>
-          <aside className="ai-drawer">
+        <aside className="ai-sidecar glass-surface">
             <div className="drawer-header">
               <div><Bot size={20}/><strong>KI-Assistent · {activeAiProvider.shortLabel}</strong></div>
               <button className="icon-button" onClick={() => { setAiOpen(false); setSelectionTextForAi(""); }}><X size={19}/></button>
@@ -2068,8 +2063,7 @@ export default function App() {
             <div className="ai-chat-hint">
               Beispiele: „Erstelle M294 mit fünf Lernnotizen“, „Vergleiche REST und GraphQL in einer Tabelle“, „Erstelle einen Flowchart zum Login-Ablauf“ oder markiere Text und frage die KI direkt.
             </div>
-          </aside>
-        </div>
+        </aside>
       )}
 
       {contextMenu && (() => {
