@@ -385,7 +385,9 @@ export default function ModuleHub({
               <div className="grade-course-list">
                 {data.courses.map(course => {
                   const result = courseGrade(course);
-                  const weightTotal = (course.assessments ?? []).reduce((sum, item) => sum + effectiveAssessmentWeight(course, item), 0);\n                  const localWeight = localAssessmentWeight(course);\n                  const rawOfficialWeight = (course.assessments ?? []).filter(item => item.source === "official" || item.locked).reduce((sum, item) => sum + item.weight, 0);
+                  const weightTotal = (course.assessments ?? []).reduce((sum, item) => sum + effectiveAssessmentWeight(course, item), 0);
+                  const localWeight = localAssessmentWeight(course);
+                  const rawOfficialWeight = (course.assessments ?? []).filter(item => item.source === "official" || item.locked).reduce((sum, item) => sum + item.weight, 0);
                   const activeVariant = course.assessmentVariants?.find(variant => variant.id === course.assessmentVariantId)
                     ?? course.assessmentVariants?.[0];
                   return (
