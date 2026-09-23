@@ -305,7 +305,7 @@ export async function fetchOfficialModuleBundle(
   }
 
   const variants = await Promise.all(
-    Array.from({ length: 8 }, (_, index) => index + 1).map(async variant => {
+    Array.from({ length: 12 }, (_, index) => index + 1).map(async variant => {
       try {
         const lbvHtml = await fetchLbvHtml(number, variant);
         return lbvHtml ? parseOfficialLbvHtml(lbvHtml, number, variant) : null;
