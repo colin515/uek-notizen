@@ -1664,11 +1664,31 @@ function Onboarding({
   setSetup,
   finish
 }: {
-  setup: { name: string; apiKey: string; educationProfileId: string };
-  setSetup: (value: { name: string; apiKey: string; educationProfileId: string }) => void;
+  setup: {
+    name: string;
+    educationProfileId: string;
+    aiProvider: AiProvider;
+    aiModel: string;
+    aiKeys: Record<AiProvider, string>;
+  };
+  setSetup: (value: {
+    name: string;
+    educationProfileId: string;
+    aiProvider: AiProvider;
+    aiModel: string;
+    aiKeys: Record<AiProvider, string>;
+  }) => void;
   finish: () => void;
 }) {
   const [step, setStep] = useState(0);
+  const [connectionState, setConnectionState] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [connectionMessage, setConnectionMessage] = useState("");
+  const provider = aiProviderDefinition(setup.aiProvider);
+  const connection: AiConnection = {
+    provider: setup.aiProvider,
+    model: setup.aiModel,
+    apiKey: setup.aiKeys[setup.aiProvider] ?? ""
+  };
 
   return (
     <div className="onboarding">
@@ -1705,8 +1725,78 @@ function Onboarding({
         {step === 3 && <>
           <span className="eyebrow">Schritt 3 von 3</span>
           <h1>KI verbinden</h1>
-          <p>Füge deinen Groq API-Key ein. Du kannst ihn später ändern.</p>
-          <label className="field">Groq API-Key<input autoFocus type="password" value={setup.apiKey} onChange={event => setSetup({ ...setup, apiKey: event.target.value })} placeholder="gsk_…"/><small>Der Schlüssel bleibt lokal auf deinem Gerät.</small></label>
+          <p>Wähle den Anbieter, den du verwenden möchtest. Die App unterstützt GroqCloud, OpenAI und Google Gemini.</p>
+
+          <div className="provider-cards">
+            {AI_PROVIDERS.map(item => (
+              <button
+                key={item.id}
+                className={"provider-card " + (setup.aiProvider === item.id ? "active" : "")}
+                onClick={() => {
+                  setConnectionState("idle");
+                  setConnectionMessage("");
+                  setSetup({ ...setup, aiProvider: item.id, aiModel: defaultAiModel(item.id) });
+                }}
+              >
+                <span>{item.shortLabel.slice(0, 1)}</span>
+                <div><strong>{item.label}</strong><small>{item.description}</small></div>
+                {setup.aiProvider === item.id && <Check size={15}/>}
+              </button>
+            ))}
+          </div>
+
+          <label className="field">Modell
+            <select
+              value={setup.aiModel}
+              onChange={event => {
+                setConnectionState("idle");
+                setSetup({ ...setup, aiModel: event.target.value });
+              }}
+            >
+              {provider.models.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
+            </select>
+            <small>{provider.models.find(model => model.id === setup.aiModel)?.description}</small>
+          </label>
+
+          <label className="field">{provider.keyLabel}
+            <input
+              autoFocus
+              type="password"
+              value={setup.aiKeys[setup.aiProvider] ?? ""}
+              onChange={event => {
+                setConnectionState("idle");
+                setConnectionMessage("");
+                setSetup({ ...setup, aiKeys: { ...setup.aiKeys, [setup.aiProvider]: event.target.value } });
+              }}
+              placeholder={provider.keyPlaceholder}
+            />
+            <small>Der Schlüssel bleibt lokal auf deinem Gerät.</small>
+          </label>
+
+          <button
+            className="secondary full ai-tutorial-link"
+            onClick={() => window.open(aiTutorialUrl(setup.aiProvider), "_blank", "noopener,noreferrer")}
+          ><HelpCircle size={16}/> {provider.shortLabel} Schritt für Schritt einrichten</button>
+
+          <button
+            className={"secondary full ai-test-button " + connectionState}
+            disabled={connectionState === "loading" || !connection.apiKey.trim()}
+            onClick={async () => {
+              setConnectionState("loading");
+              setConnectionMessage("");
+              try {
+                await testAiConnection(connection);
+                setConnectionState("ok");
+                setConnectionMessage("Verbindung erfolgreich.");
+              } catch (error) {
+                setConnectionState("error");
+                setConnectionMessage(error instanceof Error ? error.message : String(error));
+              }
+            }}
+          >{connectionState === "loading" ? "Verbindung wird getestet…" : connectionState === "ok" ? "Verbindung erfolgreich ✓" : connectionState === "error" ? "Verbindung erneut testen" : "Verbindung testen"}</button>
+
+          {connectionMessage && <div className={"ai-connection-message " + connectionState}>{connectionMessage}</div>}
+
           <button className="primary full" onClick={finish}>App starten <Check size={17}/></button>
           <button className="text-button" onClick={finish}>Ohne KI fortfahren</button>
         </>}
