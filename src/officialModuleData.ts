@@ -60,8 +60,12 @@ function profilesFromDegrees(degrees: string[], fallback: ProfileId[]): ProfileI
   }
   if (text.includes("betriebsinformat")) profiles.add("betriebsinformatik");
   if (text.includes("informatiker")) {
-    profiles.add("informatik-ae");
-    profiles.add("informatik-pe");
+    if (text.includes("applikationsentwicklung")) profiles.add("informatik-ae");
+    if (text.includes("plattformentwicklung")) profiles.add("informatik-pe");
+    if (!text.includes("applikationsentwicklung") && !text.includes("plattformentwicklung")) {
+      profiles.add("informatik-ae");
+      profiles.add("informatik-pe");
+    }
   }
   if (text.includes("gebäudeinformat") || text.includes("gebaeudeinformat")) {
     profiles.add("gebaeudeautomation");
