@@ -8,10 +8,12 @@ Eine ruhige, Notion-inspirierte Desktop-App für Schweizer ÜK-Lernende.
 
 - Lokale Notizen ohne Anmeldung oder Cloud-Pflicht
 - ÜKs, Schnellnotizen ohne ÜK, Tags, Favoriten, Archiv und Volltextsuche
-- **ICT-Modulbaukasten:** Ausbildung wählen und bekannte Module anhand ihrer Nummer erkennen
-- Beim Anlegen eines bekannten Moduls werden Titel, Themenfelder und eine strukturierte Übersichtsnotiz vorbereitet
-- **Prüfungen & Noten:** Leistungsbeurteilungen, Prüfungsstoff, Gewichtungen und Noten pro Modul erfassen
+- **Vollständiger ICT-Modulbaukasten:** Ausbildung wählen + Modulnummer eingeben; die App lädt Kompetenz, Objekt, Handlungsziele und handlungsnotwendige Kenntnisse aus der öffentlichen Modulbaukasten-Datenquelle
+- **Offizielle LBV automatisch:** veröffentlichte Prüfungselemente, Prüfungsstoff, Gewichtungen, Prüfungsform, Richtzeiten, Hilfsmittel und Bewertungskriterien werden übernommen und lokal im ÜK gespeichert
+- Bei offiziellen Modulen ist die Prüfungsstruktur gesperrt – Lernende tragen im Normalfall nur noch ihre erreichten Noten ein
+- Bei mehreren veröffentlichten LBV-Varianten kann zwischen diesen offiziellen Varianten gewählt werden
 - Gewichtete Modulnote sowie aktueller Durchschnitt über alle benoteten ÜKs berechnen; 4.0 wird als Bestehensgrenze angezeigt
+- Bestehende offizielle ÜKs aus älteren Versionen werden automatisch mit den vollständigen Moduldaten angereichert
 - Eigene/custom ÜKs bleiben möglich und können mit eigenen Prüfungen, Themen und Gewichtungen gepflegt werden
 - Notiz-Templates für Tagesnotizen, Prüfungsvorbereitung, Cheatsheets, Arbeitsaufträge und Reflexion
 - Erweitertes Slash-Menü mit Tabellen, Infoboxen, Code, Spalten, Bildern und Flowcharts
@@ -24,9 +26,7 @@ Eine ruhige, Notion-inspirierte Desktop-App für Schweizer ÜK-Lernende.
 
 ## ICT-Moduldaten
 
-Die integrierte Modulerkennung orientiert sich am öffentlichen Modulbaukasten von ICT-Berufsbildung Schweiz. Die App speichert eine lokale Auswahl relevanter Modulnummern, Titel und Themenorientierungen und verlinkt auf die jeweiligen öffentlichen Modul-Seiten.
-
-Die konkrete Aufteilung eines ÜK-Moduls in Tests, Projekte oder andere Leistungsbeurteilungen sowie deren Gewichtungen kann je ÜK-Anbieter bzw. Durchführung variieren. Deshalb sind diese Angaben in ÜK Notizen bewusst editierbar und werden nicht als schweizweit einheitliche Vorgaben ausgegeben.
+Beim Hinzufügen eines offiziellen Moduls lädt ÜK Notizen die öffentlich verfügbaren Modul- und LBV-Daten. Nach dem Laden werden sie lokal im jeweiligen ÜK gespeichert. Dadurch enthält ein erkannter ÜK nicht nur Titel und Themen, sondern auch die publizierten Handlungsziele, Kenntnisse und Leistungsbeurteilungsvorgaben. Falls für ein Modul mehrere offizielle LBVs publiziert sind, speichert die App alle gefundenen Varianten.
 
 ## Lokal entwickeln
 
@@ -41,4 +41,4 @@ Ein erfolgreicher Push auf `main` startet automatisch die Windows- und macOS-Bui
 
 ## Datenschutz
 
-Notizen, Name, Ausbildung, Modul-/Notendaten und API-Key werden lokal im WebView-Speicher der App abgelegt. Nur wenn eine KI-Funktion bewusst ausgeführt wird, wird der relevante Notizkontext zusammen mit dem API-Key direkt an die Groq API übertragen.
+Notizen, Name, Ausbildung, Modul-/Notendaten und API-Key werden lokal im WebView-Speicher der App abgelegt. Beim Laden eines offiziellen Moduls wird nur die Modulnummer an die öffentliche Modulbaukasten-Datenquelle angefragt. Nur wenn eine KI-Funktion bewusst ausgeführt wird, wird der relevante Notizkontext zusammen mit dem API-Key direkt an die Groq API übertragen.
