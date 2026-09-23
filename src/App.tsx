@@ -479,6 +479,9 @@ export default function App() {
     model: data.settings.aiModel,
     apiKey: data.settings.aiKeys[data.settings.aiProvider] ?? ""
   };
+  const slashMatches = slashQuery === null
+    ? []
+    : slashCommands.filter(command => slashCommandMatches(command, slashQuery));
 
   const courseLabel = (courseId: string | null) => {
     if (!courseId) return "Schnellnotiz";
