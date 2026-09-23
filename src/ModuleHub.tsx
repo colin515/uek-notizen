@@ -18,9 +18,17 @@ function localAssessmentWeight(course: Course): number {
 
 export function effectiveAssessmentWeight(course: Course, assessment: CourseAssessment): number {
   if (course.isCustom) return Math.max(0, assessment.weight);
-  if (assessment.source === "local") return Math.max(0, assessment.weight);
 
   const assessments = course.assessments ?? [];
+  if (assessment.source === "local") {
+    const rawLocalTotal = assessments
+      .filter(item => item.source === "local")
+      .reduce((sum, item) => sum + Math.max(0, item.weight), 0);
+    if (rawLocalTotal <= 0) return 0;
+    const allowedLocalTotal = Math.min(20, rawLocalTotal);
+    return Math.max(0, assessment.weight) / rawLocalTotal * allowedLocalTotal;
+  }
+
   const officialTotal = assessments
     .filter(item => item.source === "official" || item.locked)
     .reduce((sum, item) => sum + Math.max(0, item.weight), 0);
@@ -426,7 +434,7 @@ export default function ModuleHub({
                       )}
 
                       {(course.assessments ?? []).map(assessment => (
-                        <div className={"assessment-row " + (assessment.locked ? "official-assessment" : "")} key={assessment.id}>
+                        <div className={"assessment-row " + (assessment.locked ? "official-assessment" : assessment.source === "local" ? "local-assessment" : "")} key={assessment.id}>
                           <input
                             value={assessment.title}
                             readOnly={assessment.locked}
