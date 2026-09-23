@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { BookOpen, Calculator, CheckCircle2, ChevronRight, CircleAlert, FilePlus2, GraduationCap, LibraryBig, Plus, Search, Trash2, X } from "lucide-react";
 import { ICT_PROFILES, NOTE_TEMPLATES, findIctModule, modulesForProfile, normalizeModuleNumber, officialModuleUrl, type IctModule, type ProfileId } from "./moduleCatalog";
@@ -121,10 +121,38 @@ export default function ModuleHub({
   const [moduleQuery, setModuleQuery] = useState("");
   const [selectedModule, setSelectedModule] = useState<IctModule | null>(null);
   const [selectedModuleLoading, setSelectedModuleLoading] = useState(false);
+  const [remoteExact, setRemoteExact] = useState<IctModule | null>(null);
+  const [remoteExactLoading, setRemoteExactLoading] = useState(false);
   const [templateCourseId, setTemplateCourseId] = useState(data.selectedCourseId ?? data.courses[0]?.id ?? "");
   const profileId = data.settings.educationProfileId || "informatik-ae";
 
   const exact = moduleQuery.trim() ? findIctModule(moduleQuery, profileId) : undefined;
+  const normalizedQuery = normalizeModuleNumber(moduleQuery);
+
+  useEffect(() => {
+    setRemoteExact(null);
+    if (!/^\d{2,4}[A-Z]?$/.test(normalizedQuery)) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setRemoteExactLoading(true);
+      void fetchOfficialModuleBundle(normalizedQuery, exact)
+        .then(official => {
+          if (!cancelled && official) setRemoteExact(official);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setRemoteExactLoading(false);
+        });
+    }, 280);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [normalizedQuery, profileId]);
+
+  const resolvedExact = remoteExact ?? exact;
   const modules = useMemo(() => {
     const q = moduleQuery.trim().toLocaleLowerCase("de-CH");
     const ordered = modulesForProfile(profileId);
@@ -236,14 +264,14 @@ export default function ModuleHub({
                   <input autoFocus value={moduleQuery} onChange={event => { setModuleQuery(event.target.value); setSelectedModule(null); }} placeholder="Modulnummer oder Begriff, z. B. 294"/>
                 </label>
 
-                {exact && (
+                {resolvedExact && (
                   <div className="recognized-module">
                     <div>
                       <span>Erkannt</span>
-                      <h2>M{exact.number} · {exact.title}</h2>
-                      <p>{exact.summary || exact.field}</p>
+                      <h2>M{resolvedExact.number} · {resolvedExact.title}</h2>
+                      <p>{resolvedExact.summary || resolvedExact.field}</p>
                     </div>
-                    <button className="primary" onClick={() => void onCreateCourseFromModule(exact)}><Plus size={16}/> Komplett als ÜK hinzufügen</button>
+                    <button className="primary" disabled={remoteExactLoading} onClick={() => void onCreateCourseFromModule(resolvedExact)}><Plus size={16}/> {remoteExactLoading ? "Offizielle Daten laden…" : "Komplett als ÜK hinzufügen"}</button>
                   </div>
                 )}
 
