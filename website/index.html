@@ -3,29 +3,301 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="ÜK Notizen – die ruhige Desktop-App für deine überbetrieblichen Kurse." />
-  <title>ÜK Notizen – Download</title>
+  <meta name="description" content="ÜK Notizen – die Desktop-App für Schweizer ICT-ÜKs mit offiziellen Moduldaten, LBV, Noten, Notizen und KI." />
+  <meta name="theme-color" content="#f6f7f4" />
+  <title>ÜK Notizen – Dein kompletter ICT-ÜK an einem Ort</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <nav><a class="logo" href="#">ÜK <span>Notizen</span></a><div><a href="#funktionen">Funktionen</a><a href="#download">Download</a><a id="github-link" href="https://github.com/colin515/uek-notizen">GitHub</a></div></nav>
-  <main>
+  <div class="page-glow glow-one" aria-hidden="true"></div>
+  <div class="page-glow glow-two" aria-hidden="true"></div>
+
+  <nav class="site-nav">
+    <a class="logo" href="#top" aria-label="ÜK Notizen Startseite">
+      <span class="logo-mark">ÜK</span><span>Notizen</span>
+    </a>
+    <div class="nav-links">
+      <a href="#modul">Module</a>
+      <a href="#notizen">Notizen</a>
+      <a href="#ki">KI</a>
+      <a href="#noten">Noten</a>
+      <a href="#download">Download</a>
+      <a class="nav-github" href="https://github.com/colin515/uek-notizen">GitHub ↗</a>
+    </div>
+  </nav>
+
+  <main id="top">
     <section class="hero">
-      <div class="eyebrow">Einfach lernen. Besser festhalten.</div>
-      <h1>Deine ÜK-Notizen.<br><em>Ruhig organisiert.</em></h1>
-      <p>Beruf wählen, Modulnummer eingeben – Kompetenz, Handlungsziele, Lernstoff und offizielle LBV-Prüfungen werden automatisch geladen. Dazu Noten, Templates, DOCX-Export und optionale KI.</p>
-      <div class="hero-actions"><a class="button primary" href="#download">Kostenlos herunterladen</a><a class="button secondary" href="#funktionen">Mehr erfahren</a></div>
-      <div class="trust"><span>✓ Keine Anmeldung</span><span>✓ Lokal gespeichert</span><span>✓ Windows & macOS</span></div>
+      <div class="hero-copy reveal">
+        <div class="eyebrow-pill"><i></i> Für Schweizer ICT-ÜKs</div>
+        <h1>Dein kompletter ÜK.<br><em>Eine Nummer genügt.</em></h1>
+        <p>Ausbildung wählen, Modulnummer eingeben und loslegen. ÜK Notizen lädt Kompetenz, Handlungsziele, Lernstoff und veröffentlichte LBV-Prüfungen – dazu Notizen, Noten, Templates und KI.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#download">Kostenlos herunterladen <span>↓</span></a>
+          <a class="button secondary" href="#modul">Live ansehen <span>↘</span></a>
+        </div>
+        <div class="trust-row">
+          <span><b>✓</b> Keine Anmeldung</span>
+          <span><b>✓</b> Daten lokal</span>
+          <span><b>✓</b> Windows & macOS</span>
+        </div>
+      </div>
+
+      <div class="hero-stage reveal" data-delay="100">
+        <div class="hero-orbit orbit-a"></div>
+        <div class="hero-orbit orbit-b"></div>
+        <div class="app-window hero-window tilt-card" data-tilt>
+          <div class="window-bar">
+            <div class="traffic"><i></i><i></i><i></i></div>
+            <span>ÜK Notizen</span>
+            <div class="window-actions"><i></i><i></i></div>
+          </div>
+          <div class="app-shell">
+            <aside class="app-sidebar">
+              <div class="mini-brand"><span>ÜK</span> Notizen</div>
+              <button class="sidebar-create">＋ Neue Notiz</button>
+              <small>ARBEITSBEREICH</small>
+              <button class="side-item active"><span class="side-icon">▤</span> M294 Frontend</button>
+              <button class="side-item"><span class="side-icon">✦</span> Schnellnotizen</button>
+              <button class="side-item"><span class="side-icon">◎</span> Module & Noten</button>
+              <small>DEINE ÜKS</small>
+              <button class="side-course"><i></i><span>M294<br><b>Frontend Webapp</b></span></button>
+              <button class="side-course"><i></i><span>M295<br><b>Backend</b></span></button>
+              <button class="side-course muted"><i></i><span>M106<br><b>Datenbanken</b></span></button>
+            </aside>
+            <section class="app-content">
+              <div class="app-topline"><span>M294 / Übersicht</span><div><button>⌕</button><button>✦ KI</button></div></div>
+              <div class="doc-header">
+                <div class="doc-icon">M294</div>
+                <h2>Frontend einer interaktiven Webapplikation realisieren</h2>
+                <p>Web Engineering · Offizielles ICT-Modul</p>
+              </div>
+              <div class="info-strip"><b>Kompetenz</b><span>Ein Frontend für eine interaktive Webapplikation mit bestehendem Backend realisieren.</span></div>
+              <div class="doc-grid">
+                <div class="doc-card"><small>HANDLUNGSZIELE</small><strong>9</strong><span>automatisch geladen</span></div>
+                <div class="doc-card"><small>LBV</small><strong>100%</strong><span>offizielle Gewichtung</span></div>
+                <div class="doc-card"><small>NOTENSTAND</small><strong>5.1</strong><span>aktueller Schnitt</span></div>
+              </div>
+              <div class="doc-lines">
+                <span class="long"></span><span></span><span class="mid"></span>
+                <span class="label">Handlungsnotwendige Kenntnisse</span>
+                <span class="long"></span><span class="mid"></span><span></span>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="floating-chip chip-ai"><span>✦</span><div><small>KI</small><b>Erklär mir REST einfach</b></div></div>
+        <div class="floating-chip chip-grade"><span>5.1</span><div><small>ÜK-Schnitt</small><b>Alles im Blick</b></div></div>
+      </div>
     </section>
-    <section class="preview" aria-label="App-Vorschau">
-      <div class="window-bar"><i></i><i></i><i></i><span>ÜK Notizen</span></div>
-      <div class="mock-app"><aside><b>ÜK Notizen</b><button>＋ Neue Notiz</button><small>ALLE NOTIZEN</small><div class="mock-note active">Netzwerkgrundlagen<br><span>ÜK 187</span></div><div class="mock-note">Datenschutz<br><span>ÜK 106</span></div><div class="mock-note">Projektplanung<br><span>ÜK 431</span></div></aside><article><span class="crumb">ÜK 187 / Netzwerkgrundlagen</span><h2>Netzwerkgrundlagen</h2><div class="meta">ÜK 187 · Netzwerk · 22.09.2026</div><div class="toolbar">B&nbsp;&nbsp; I&nbsp;&nbsp; U&nbsp;&nbsp; H2&nbsp;&nbsp; • Liste</div><h3>OSI-Modell</h3><p>Das OSI-Modell beschreibt die Kommunikation in sieben aufeinander aufbauenden Schichten.</p><ul><li>Jede Schicht übernimmt eine klar definierte Aufgabe.</li><li>Daten werden beim Senden gekapselt.</li><li>Fehler lassen sich gezielter eingrenzen.</li></ul></article></div>
+
+    <section class="logo-strip reveal">
+      <span>MODULBAUKASTEN</span><i></i><span>NOTIZEN</span><i></i><span>LBV & NOTEN</span><i></i><span>DOCX EXPORT</span><i></i><span>GROQ KI</span>
     </section>
-    <section id="funktionen" class="features"><div class="section-heading"><span>Alles Wichtige</span><h2>Für deinen ÜK-Alltag gebaut.</h2></div><div class="feature-grid"><article><b>01</b><h3>Kompletter ÜK automatisch</h3><p>Beruf + Modulnummer reichen: Kompetenz, Objekt, Handlungsziele und Kenntnisse werden aus dem Modulbaukasten geladen.</p></article><article><b>02</b><h3>Offizielle LBV & Noten</h3><p>Prüfungselemente und Gewichtungen sind bereits vorgegeben. Du trägst nur deine Noten ein – inklusive Modulnote und ÜK-Durchschnitt.</p></article><article><b>03</b><h3>Templates & Editor</h3><p>Tagesnotizen, Prüfungsvorbereitung, Cheatsheets, Tabellen, Flowcharts und Schnellnotizen.</p></article><article><b>04</b><h3>KI & lokale Daten</h3><p>Optional mit Groq lernen und strukturieren. Deine App-Daten bleiben lokal auf deinem Gerät.</p></article></div></section>
-    <section id="download" class="download"><div><span class="eyebrow">Kostenlos herunterladen</span><h2>In einer Minute startklar.</h2><p>Wähle dein Betriebssystem. Für Mac-Lernende haben wir eine einfache Schritt-für-Schritt-Anleitung vorbereitet.</p></div><div class="download-grid"><a id="mac-download" class="download-card" href="macos.html"><span class="os-icon">⌘</span><div><small>FÜR MACOS (APPLE SILICON &amp; INTEL)</small><strong>macOS herunterladen</strong><span>Inkl. 3-Schritte-Anleitung</span></div><b>→</b></a><a id="windows-download" class="download-card" href="https://github.com/colin515/uek-notizen/releases/download/v1.3.0/UEK-Notizen-Windows-x64.zip"><span class="os-icon">⊞</span><div><small>FÜR WINDOWS</small><strong>Windows herunterladen</strong><span>Portable ZIP · 64-Bit</span></div><b>↓</b></a><p id="release-status">Aktuelle Version: v1.3.0</p></div></section>
+
+    <section id="modul" class="story-section module-story">
+      <div class="story-copy reveal">
+        <span class="section-kicker">01 · Modul automatisch</span>
+        <h2>Nummer rein.<br>Kompletter ÜK raus.</h2>
+        <p>Wähle deinen ICT-Beruf und gib die Modulnummer ein. Die App holt die veröffentlichten Moduldaten und baut daraus direkt deinen ÜK.</p>
+        <div class="feature-points">
+          <span><i>✓</i> Kompetenz & Objekt</span>
+          <span><i>✓</i> Handlungsziele & Kenntnisse</span>
+          <span><i>✓</i> Veröffentlichte LBV</span>
+          <span><i>✓</i> Prüfungsgewichtungen</span>
+        </div>
+      </div>
+
+      <div class="interactive-card reveal" data-delay="80">
+        <div class="demo-tabs" role="tablist" aria-label="ÜK erstellen">
+          <button class="demo-tab active" data-mode="official" role="tab">Modulnummer</button>
+          <button class="demo-tab" data-mode="manual" role="tab">Manuell</button>
+        </div>
+
+        <div class="demo-pane active" data-pane="official">
+          <label class="demo-label">Ausbildung
+            <select id="demo-profile">
+              <option>Informatiker/in EFZ – Applikationsentwicklung</option>
+              <option>Informatiker/in EFZ – Plattformentwicklung</option>
+              <option>ICT-Fachfrau/-mann EFZ</option>
+              <option>Mediamatiker/in EFZ</option>
+            </select>
+          </label>
+          <label class="demo-label">Modulnummer
+            <div class="module-input-wrap"><span>M</span><input id="module-demo-input" inputmode="numeric" value="294" maxlength="4" aria-label="Demo Modulnummer" /></div>
+          </label>
+          <div id="module-demo-result" class="module-result">
+            <div class="module-result-top"><span class="status-dot"></span><small>OFFIZIELLES MODUL ERKANNT</small></div>
+            <h3 id="demo-module-title">Frontend einer interaktiven Webapplikation realisieren</h3>
+            <p id="demo-module-summary">Web Engineering · Kompetenz, Handlungsziele und LBV werden automatisch geladen.</p>
+            <div class="loaded-items">
+              <span><b>9</b> Handlungsziele</span><span><b>✓</b> Lernstoff</span><span><b>100%</b> LBV</span>
+            </div>
+            <button class="demo-create">Kompletten ÜK erstellen <span>→</span></button>
+          </div>
+        </div>
+
+        <div class="demo-pane" data-pane="manual">
+          <label class="demo-label">Eigener ÜK-Titel<input value="Interner Cloud Workshop" aria-label="Demo eigener ÜK-Titel" /></label>
+          <div class="manual-row">
+            <label class="demo-label">Tests<input value="3" aria-label="Demo Anzahl Tests" /></label>
+            <label class="demo-label">Thema<input value="Cloud & Docker" aria-label="Demo Thema" /></label>
+          </div>
+          <div class="manual-preview">
+            <span>Custom ÜK</span>
+            <h3>Interner Cloud Workshop</h3>
+            <p>Freie Struktur für Firmenkurse, Spezialmodule oder eigene Lernprojekte.</p>
+            <button class="demo-create">Eigenen ÜK erstellen <span>→</span></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="notizen" class="showcase-section">
+      <div class="section-heading reveal">
+        <span>02 · Schreiben</span>
+        <h2>Notizen, die sich nicht<br>nach Schulsoftware anfühlen.</h2>
+        <p>Ein ruhiger Editor, schnelle Slash-Befehle und genau genug Struktur für einen ganzen ÜK.</p>
+      </div>
+
+      <div class="editor-showcase reveal">
+        <div class="editor-browser">
+          <div class="editor-titlebar"><i></i><i></i><i></i><span>M295 · Backend</span></div>
+          <div class="editor-layout">
+            <aside>
+              <strong>M295</strong>
+              <button class="active">API Grundlagen</button>
+              <button>REST & CRUD</button>
+              <button>Authentifizierung</button>
+              <button>Testing</button>
+              <button>Prüfungsvorbereitung</button>
+            </aside>
+            <article>
+              <small>M295 / REST & CRUD</small>
+              <h3>REST & CRUD</h3>
+              <div class="editor-toolbar"><b>B</b><i>I</i><span>H2</span><span>☷</span><span>☑</span><span>▦</span><span>⌘</span></div>
+              <h4>Was ist REST?</h4>
+              <p>REST beschreibt Prinzipien für Schnittstellen zwischen Client und Server. Ressourcen werden über URLs angesprochen.</p>
+              <div class="code-line"><span>GET</span> /api/notes</div>
+              <div class="callout"><b>Merken</b><span>HTTP-Methode + Ressource + Statuscode bilden die Grundlage.</span></div>
+              <div class="slash-pop">
+                <small>/ SCHNELLBEFEHLE</small>
+                <span><b>/table</b> Tabelle</span>
+                <span><b>/flowchart</b> Flowchart</span>
+                <span><b>/info</b> Infobox</span>
+              </div>
+            </article>
+          </div>
+        </div>
+        <div class="editor-caption">
+          <span class="caption-dot"></span>
+          <div><b>Slash-Menü</b><small>Tabellen, Code, Checklisten, Bilder, Flowcharts und mehr.</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ki" class="ai-section">
+      <div class="ai-copy reveal">
+        <span class="section-kicker light">03 · KI-Assistent</span>
+        <h2>Nicht nur Chat.<br><em>Direkt in deinen Notizen.</em></h2>
+        <p>Die KI kennt den Kontext deines ÜKs, kann Inhalte erklären, zusammenfassen, verbessern und Lernfragen erzeugen.</p>
+        <div class="ai-actions-demo" role="group" aria-label="KI Demo Aktionen">
+          <button class="ai-demo-action active" data-ai="explain">Einfach erklären</button>
+          <button class="ai-demo-action" data-ai="summary">Zusammenfassen</button>
+          <button class="ai-demo-action" data-ai="quiz">Lernfragen</button>
+        </div>
+      </div>
+
+      <div class="ai-device reveal" data-delay="100">
+        <div class="ai-panel">
+          <div class="ai-head"><div><span>✦</span><b>KI-Assistent</b></div><small>Groq · optional</small></div>
+          <div class="ai-context"><small>KONTEXT</small><span>M294 · Frontend Webapp</span></div>
+          <div class="ai-message user">Erklär mir CRUD so, dass ich es mir für die Prüfung merken kann.</div>
+          <div id="ai-demo-response" class="ai-message assistant">
+            <div class="typing-dot"><i></i><i></i><i></i></div>
+            <div class="ai-response-text">CRUD sind die vier Grundaktionen auf Daten: <b>Create</b> erstellen, <b>Read</b> lesen, <b>Update</b> ändern und <b>Delete</b> löschen. Denk an einen Notizzettel: neu schreiben, anschauen, korrigieren, wegwerfen.</div>
+          </div>
+          <div class="ai-suggestions"><span>In Notiz übernehmen</span><span>Beispiel zeigen</span></div>
+          <div class="ai-input"><span>Frag etwas zu deinem ÜK …</span><b>↑</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="noten" class="grades-section">
+      <div class="section-heading reveal">
+        <span>04 · LBV & Noten</span>
+        <h2>Du trägst die Note ein.<br>Den Rest rechnet die App.</h2>
+        <p>Bei offiziellen Modulen bleiben veröffentlichte Prüfungselemente und Gewichtungen fest. Deine Noten ergeben automatisch Modulnote und ÜK-Durchschnitt.</p>
+      </div>
+
+      <div class="grades-grid">
+        <article class="grade-board reveal">
+          <header><div><small>M294</small><h3>Frontend Webapplikation</h3></div><span class="grade-pill">5.10</span></header>
+          <div class="grade-head"><span>Leistungsnachweis</span><span>Gewicht</span><span>Note</span></div>
+          <div class="grade-row"><span><b>Element 1</b><small>Praktische Umsetzung</small></span><strong>50%</strong><em>5.3</em></div>
+          <div class="grade-row"><span><b>Element 2</b><small>Fachgespräch / Theorie</small></span><strong>50%</strong><em>4.9</em></div>
+          <footer><span>Offizielle LBV</span><b>Bestanden ✓</b></footer>
+        </article>
+
+        <article class="average-card reveal" data-delay="80">
+          <small>DEIN ÜK-DURCHSCHNITT</small>
+          <strong>4.87</strong>
+          <div class="average-scale"><i style="width:77%"></i></div>
+          <div class="average-legend"><span>4.0</span><b>Aktueller Stand</b><span>6.0</span></div>
+          <div class="mini-grades">
+            <span>M106 <b>4.5</b></span>
+            <span>M294 <b>5.1</b></span>
+            <span>M295 <b>5.0</b></span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="feature-bento">
+      <div class="section-heading reveal">
+        <span>Mehr drin</span>
+        <h2>Ein Workspace für den ganzen ÜK.</h2>
+      </div>
+      <div class="bento-grid">
+        <article class="bento large reveal"><span class="bento-icon">⌘</span><h3>Templates</h3><p>Tagesnotizen, Prüfungsvorbereitung, Cheatsheets, Arbeitsaufträge und Reflexion – direkt als strukturierte Notiz.</p><div class="template-stack"><i>Prüfungsvorbereitung</i><i>Cheatsheet</i><i>Tagesnotiz</i></div></article>
+        <article class="bento reveal" data-delay="50"><span class="bento-icon">↗</span><h3>Word Export</h3><p>Der ganze ÜK als DOCX mit Inhaltsverzeichnis, Name, ÜK-Nummer und Seitenzahlen.</p><div class="document-mini"><b>M294</b><span></span><span></span><span></span></div></article>
+        <article class="bento reveal" data-delay="100"><span class="bento-icon">◇</span><h3>Flowcharts</h3><p>Diagramme direkt aus dem Slash-Menü erstellen und verbinden.</p><div class="flow-mini"><i>Start</i><b>→</b><i>API</i><b>→</b><i>DB</i></div></article>
+        <article class="bento wide reveal"><span class="bento-icon">⚡</span><h3>Schnellnotizen</h3><p>Spontan etwas festhalten, ohne einen ÜK auszuwählen – und später mit einem Klick zuordnen.</p><div class="quick-note-mini"><span>Idee für Prüfung</span><small>JWT vs. Session nochmals anschauen</small></div></article>
+      </div>
+    </section>
+
+    <section id="download" class="download-section">
+      <div class="download-copy reveal">
+        <span class="section-kicker">Download</span>
+        <h2>Bereit für deinen<br>nächsten ÜK?</h2>
+        <p>Keine Anmeldung, kein Abo. Herunterladen, Namen und Ausbildung wählen und direkt loslegen.</p>
+        <div class="download-note"><span>✓</span><div><b>Deine Daten bleiben lokal.</b><small>Nur bei bewusster Nutzung der KI werden relevante Inhalte an Groq gesendet.</small></div></div>
+      </div>
+
+      <div class="download-stack reveal" data-delay="80">
+        <a id="windows-download" class="download-card featured" href="https://github.com/colin515/uek-notizen/releases/download/v1.3.0/UEK-Notizen-Windows-x64.zip">
+          <span class="os-icon windows-icon">⊞</span>
+          <div><small>WINDOWS · 64-BIT</small><strong>Windows herunterladen</strong><span>Portable ZIP · entpacken und starten</span></div>
+          <b>↓</b>
+        </a>
+        <a id="mac-download" class="download-card" href="macos.html">
+          <span class="os-icon">⌘</span>
+          <div><small>MACOS · APPLE SILICON & INTEL</small><strong>macOS herunterladen</strong><span>DMG / ZIP · Anleitung inklusive</span></div>
+          <b>→</b>
+        </a>
+        <p id="release-status">Aktuelle Version wird geprüft …</p>
+      </div>
+    </section>
   </main>
-  <footer><a class="logo" href="#">ÜK <span>Notizen</span></a><p>Gemacht für einen einfacheren ÜK-Alltag.</p><span>© 2026 Colin</span></footer>
+
+  <footer>
+    <a class="logo" href="#top"><span class="logo-mark">ÜK</span><span>Notizen</span></a>
+    <p>Gebaut für einen ruhigeren, besseren ÜK-Alltag.</p>
+    <div><a href="https://github.com/colin515/uek-notizen">GitHub</a><span>© 2026 Colin</span></div>
+  </footer>
+
+  <script src="showcase.js?v=1.0.0"></script>
   <script src="downloads.js?v=1.4.0"></script>
 </body>
 </html>
-
