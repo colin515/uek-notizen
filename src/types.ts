@@ -5,6 +5,7 @@ export interface Settings {
   apiKey: string;
   theme: Theme;
   onboarded: boolean;
+  tutorialSeen: boolean;
 }
 
 export interface Course {
@@ -18,7 +19,7 @@ export interface Note {
   id: string;
   title: string;
   content: string;
-  courseId: string;
+  courseId: string | null;
   course?: string;
   tags: string[];
   favorite: boolean;
