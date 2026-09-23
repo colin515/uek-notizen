@@ -40,6 +40,7 @@ export interface CourseAssessmentVariant {
   description?: string;
   totalDuration?: string;
   sourceUrl?: string;
+  learningLocations?: string[];
   assessments: CourseAssessment[];
 }
 
