@@ -322,7 +322,19 @@ export function findIctModule(value: string, profileId?: string): IctModule | un
 }
 
 export function modulesForProfile(profileId?: string): IctModule[] {
+  const pathOrder = profileId
+    ? (UEK_PROFILE_PATHS[profileId as ProfileId]?.years.flatMap(year => year.moduleNumbers) ?? [])
+    : [];
+
   const ordered = [...ICT_MODULES].sort((a, b) => {
+    const aPath = pathOrder.indexOf(a.number);
+    const bPath = pathOrder.indexOf(b.number);
+    if (aPath >= 0 || bPath >= 0) {
+      if (aPath < 0) return 1;
+      if (bPath < 0) return -1;
+      return aPath - bPath;
+    }
+
     const aMatch = profileId && a.profiles.includes(profileId as ProfileId) ? 1 : 0;
     const bMatch = profileId && b.profiles.includes(profileId as ProfileId) ? 1 : 0;
     return bMatch - aMatch || a.number.localeCompare(b.number, "de-CH", { numeric: true });
