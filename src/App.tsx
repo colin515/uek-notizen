@@ -1655,6 +1655,14 @@ export default function App() {
     });
   };
 
+  const handleGlassPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * 100;
+    const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * 100;
+    event.currentTarget.style.setProperty("--glass-x", x.toFixed(2) + "%");
+    event.currentTarget.style.setProperty("--glass-y", y.toFixed(2) + "%");
+  };
+
   if (!data.settings.onboarded) {
     return (
       <Onboarding
@@ -1676,12 +1684,65 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div
+      className={"app-shell " + (sidebar ? "library-open " : "") + (aiOpen ? "ai-open" : "")}
+      onPointerMove={handleGlassPointerMove}
+    >
+      <div className="liquid-background" aria-hidden="true">
+        <i className="liquid-orb orb-one"/>
+        <i className="liquid-orb orb-two"/>
+        <i className="liquid-orb orb-three"/>
+      </div>
+
+      <aside className="nav-rail glass-surface">
+        <button className="rail-logo" title="ÜK Notizen" onClick={() => setSidebar(true)}>
+          <span className="brand-mark">ÜK</span>
+        </button>
+
+        <nav className="rail-nav" aria-label="Hauptnavigation">
+          <button className={sidebar ? "active" : ""} title="Bibliothek" onClick={() => setSidebar(value => !value)}>
+            {sidebar ? <PanelLeftClose size={19}/> : <PanelLeftOpen size={19}/>}
+            <span>Bibliothek</span>
+          </button>
+          <button className={filter === "quick" ? "active" : ""} title="Schnellnotizen" onClick={selectQuickNotes}>
+            <Zap size={18}/><span>Quick</span>
+          </button>
+          <button title="Module & Noten" onClick={() => setModuleHubOpen(true)}>
+            <GraduationCap size={19}/><span>Module</span>
+          </button>
+          <button className={filter === "favorites" ? "active" : ""} title="Favoriten" onClick={() => setFilter("favorites")}>
+            <Heart size={18}/><span>Favoriten</span>
+          </button>
+          <button className={filter === "archive" ? "active" : ""} title="Archiv" onClick={() => setFilter("archive")}>
+            <Archive size={18}/><span>Archiv</span>
+          </button>
+          <button className={aiOpen ? "active ai-rail-button" : "ai-rail-button"} title="KI-Assistent" onClick={() => selected && setAiOpen(value => !value)}>
+            <Sparkles size={18}/><span>KI</span>
+          </button>
+        </nav>
+
+        <div className="rail-footer">
+          <button title={data.settings.theme === "light" ? "Dark Mode" : "Light Mode"} onClick={() => setData(current => ({ ...current, settings: { ...current.settings, theme: current.settings.theme === "light" ? "dark" : "light" } }))}>
+            {data.settings.theme === "light" ? <Moon size={18}/> : <Sun size={18}/>}
+            <span>Design</span>
+          </button>
+          <button title="Einstellungen" onClick={() => setSettingsOpen(true)}>
+            <SettingsIcon size={18}/><span>Setup</span>
+          </button>
+          <button className="rail-user" title={data.settings.name || "Profil"} onClick={() => setSettingsOpen(true)}>
+            <span>{(data.settings.name || "ÜK").trim().slice(0, 1).toUpperCase()}</span>
+          </button>
+        </div>
+      </aside>
+
       {sidebar && (
-        <aside className="sidebar">
-          <div className="brand">
-            <div className="brand-mark">ÜK</div>
-            <div><strong>ÜK Notizen</strong><span>{data.settings.name}</span></div>
+        <aside className="library-panel glass-surface">
+          <div className="library-header">
+            <div>
+              <span className="library-eyebrow">Workspace</span>
+              <strong>Bibliothek</strong>
+            </div>
+            <button className="icon-button glass-button" title="Bibliothek schliessen" onClick={() => setSidebar(false)}><PanelLeftClose size={17}/></button>
           </div>
 
           <div className="create-actions">
@@ -1689,35 +1750,27 @@ export default function App() {
               <Plus size={17}/> Neuer ÜK
             </button>
             <button className="quick-note-button" onClick={() => addQuickNote()}>
-              <Zap size={16}/> Schnellnotiz
+              <Zap size={16}/> Quick Note
             </button>
           </div>
 
-          <label className="search">
+          <label className="search glass-control">
             <Search size={16}/>
-            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Alles durchsuchen…"/>
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Notizen durchsuchen…"/>
+            <kbd>⌘K</kbd>
           </label>
-          {query.trim() && <div className="search-hint">Schlaue Suche berücksichtigt Themen, Synonyme und ähnliche Begriffe.</div>}
+          {query.trim() && <div className="search-hint">Suche nach Titel, Inhalt, Tags und ähnlichen Begriffen.</div>}
 
-          <nav className="nav-list">
-            <button className={filter === "quick" ? "active" : ""} onClick={selectQuickNotes}>
-              <Zap size={16}/> Schnellnotizen <span>{data.notes.filter(note => note.courseId === null && !note.archived).length}</span>
-            </button>
-            <button className={filter === "favorites" ? "active" : ""} onClick={() => setFilter("favorites")}><Heart size={16}/> Favoriten</button>
-            <button className={filter === "archive" ? "active" : ""} onClick={() => setFilter("archive")}><Archive size={16}/> Archiv</button>
-            <button onClick={() => setModuleHubOpen(true)}><GraduationCap size={16}/> Module & Noten</button>
-          </nav>
-
-          <div className="course-heading">
-            <span>DEINE ÜKS</span>
+          <div className="library-section-heading">
+            <span>ÜK Module</span>
             <button title="ÜK erstellen" onClick={() => setCourseModalOpen(true)}><Plus size={14}/></button>
           </div>
 
-          <div className="course-list">
-            {data.courses.map(course => (
+          <div className="course-list glass-list">
+            {data.courses.map((course, index) => (
               <div key={course.id} className={filter === "course" && course.id === selectedCourse?.id ? "course-card active" : "course-card"}>
                 <button className="course-main" onClick={() => selectCourse(course)}>
-                  <span className="course-icon"><Layers3 size={15}/></span>
+                  <span className="course-icon"><b>{index + 1}</b></span>
                   <span><strong>{course.number}</strong><small>{course.title}</small></span>
                 </button>
                 <b className="course-count">{data.notes.filter(note => note.courseId === course.id && !note.archived).length}</b>
@@ -1735,6 +1788,11 @@ export default function App() {
             ))}
           </div>
 
+          <div className="library-section-heading notes-heading">
+            <span>{filter === "quick" ? "Schnellnotizen" : filter === "favorites" ? "Favoriten" : filter === "archive" ? "Archiv" : "Notizen"}</span>
+            <b>{visible.length}</b>
+          </div>
+
           <div className="note-list">
             {visible.map(note => (
               <button
@@ -1743,15 +1801,13 @@ export default function App() {
                 onClick={() => setData(current => ({ ...current, selectedNoteId: note.id, selectedCourseId: note.courseId }))}
                 onContextMenu={event => handleNoteContextMenu(event, note.id)}
               >
-                <strong>{note.title}</strong>
+                <div className="note-card-title"><strong>{note.title}</strong>{note.favorite && <Heart size={11} fill="currentColor"/>}</div>
                 <span>{courseLabel(note.courseId)} · {new Date(note.updatedAt).toLocaleDateString("de-CH")}</span>
                 <p>{stripHtml(note.content).slice(0, 88) || "Leere Notiz"}</p>
               </button>
             ))}
             {!visible.length && <div className="muted search-empty">Keine passende Notiz gefunden.</div>}
           </div>
-
-          <button className="settings-link" onClick={() => setSettingsOpen(true)}><SettingsIcon size={16}/> Einstellungen</button>
         </aside>
       )}
 
