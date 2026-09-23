@@ -1390,6 +1390,13 @@ export default function App() {
               <strong>Neuen ÜK erstellen</strong>
               <button className="icon-button" onClick={() => setCourseModalOpen(false)}><X size={19}/></button>
             </div>
+            <div className="current-profile-chip">
+              <GraduationCap size={16}/>
+              <div>
+                <small>Ausbildung</small>
+                <strong>{ICT_PROFILES.find(profile => profile.id === data.settings.educationProfileId)?.title ?? "ICT-Ausbildung"}</strong>
+              </div>
+            </div>
             <label className="field">Modulnummer
               <input
                 autoFocus
@@ -1399,9 +1406,9 @@ export default function App() {
                   const module = findIctModule(value, data.settings.educationProfileId);
                   setCourseDraft({ number: value, title: module?.title ?? "" });
                 }}
-                placeholder="z. B. 294 oder M294"
+                placeholder="z. B. 294"
               />
-              <small>Bei bekannten ICT-Modulen wird der Titel automatisch erkannt.</small>
+              <small>Nummer eingeben. Die App lädt danach den vollständigen Modulinhalt und die veröffentlichten LBV-Daten.</small>
             </label>
             {recognizedDraftModule && (
               <div className="module-recognition-inline">
@@ -1410,7 +1417,7 @@ export default function App() {
                 <p>{recognizedDraftModule.topics.slice(0, 5).join(" · ")}</p>
               </div>
             )}
-            <label className="field">ÜK-Titel<input value={courseDraft.title} onChange={event => setCourseDraft({ ...courseDraft, title: event.target.value })} placeholder="Wird bei ICT-Modulen automatisch ausgefüllt"/></label>
+            <label className="field custom-title-field">Custom-Titel <span>(nur für eigene ÜKs)</span><input value={courseDraft.title} onChange={event => setCourseDraft({ ...courseDraft, title: event.target.value })} placeholder="Leer lassen für offizielle ICT-Module"/></label>
             <button className="secondary full" onClick={() => { setCourseModalOpen(false); setModuleHubOpen(true); }}><GraduationCap size={16}/> Modulbaukasten durchsuchen</button>
             <button className="primary full" onClick={() => void addCourse()} disabled={moduleLoading}><Plus size={16}/> {moduleLoading ? "Offizielle Daten werden geladen…" : courseDraft.number.trim() ? "Komplettes Modul laden" : "Custom-ÜK erstellen"}</button>
           </div>
