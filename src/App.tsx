@@ -1656,11 +1656,22 @@ export default function App() {
   };
 
   const handleGlassPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * 100;
-    const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * 100;
-    event.currentTarget.style.setProperty("--glass-x", x.toFixed(2) + "%");
-    event.currentTarget.style.setProperty("--glass-y", y.toFixed(2) + "%");
+    const shellRect = event.currentTarget.getBoundingClientRect();
+    const shellX = ((event.clientX - shellRect.left) / Math.max(1, shellRect.width)) * 100;
+    const shellY = ((event.clientY - shellRect.top) / Math.max(1, shellRect.height)) * 100;
+    event.currentTarget.style.setProperty("--glass-x", shellX.toFixed(2) + "%");
+    event.currentTarget.style.setProperty("--glass-y", shellY.toFixed(2) + "%");
+
+    const target = event.target instanceof Element
+      ? event.target.closest(".glass-regular,.modal,.module-hub,.context-menu,.slash-menu,.table-picker,.table-context-toolbar")
+      : null;
+    if (!(target instanceof HTMLElement)) return;
+
+    const rect = target.getBoundingClientRect();
+    const localX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * 100;
+    const localY = ((event.clientY - rect.top) / Math.max(1, rect.height)) * 100;
+    target.style.setProperty("--glass-x", localX.toFixed(2) + "%");
+    target.style.setProperty("--glass-y", localY.toFixed(2) + "%");
   };
 
   if (!data.settings.onboarded) {
