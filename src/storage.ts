@@ -1,9 +1,10 @@
-import type { AppData, Course, Note } from "./types";
+import type { AiProvider, AppData, Course, Note } from "./types";
+import { defaultAiModel } from "./aiProviders";
 
 const KEY = "uek-notizen-data-v1";
 
 export const emptyData: AppData = {
-  settings: { name: "", apiKey: "", theme: "light", onboarded: false, tutorialSeen: false, educationProfileId: "informatik-ae" },
+  settings: { name: "", apiKey: "", aiProvider: "groq", aiModel: defaultAiModel("groq"), aiKeys: { groq: "", openai: "", gemini: "" }, theme: "light", onboarded: false, tutorialSeen: false, educationProfileId: "informatik-ae" },
   courses: [],
   notes: [],
   selectedCourseId: null,
@@ -104,10 +105,31 @@ export function loadData(): AppData {
       ? parsed.selectedNoteId
       : null;
 
+    const parsedSettings = parsed.settings ?? {};
+    const validProviders: AiProvider[] = ["groq", "openai", "gemini"];
+    const aiProvider = validProviders.includes(parsedSettings.aiProvider as AiProvider)
+      ? parsedSettings.aiProvider as AiProvider
+      : "groq";
+    const aiKeys = {
+      ...emptyData.settings.aiKeys,
+      ...(parsedSettings.aiKeys ?? {})
+    };
+    if (!aiKeys.groq && typeof parsedSettings.apiKey === "string" && parsedSettings.apiKey.trim()) {
+      aiKeys.groq = parsedSettings.apiKey.trim();
+    }
+
     return {
       ...emptyData,
       ...parsed,
-      settings: { ...emptyData.settings, ...parsed.settings },
+      settings: {
+        ...emptyData.settings,
+        ...parsedSettings,
+        aiProvider,
+        aiKeys,
+        aiModel: typeof parsedSettings.aiModel === "string" && parsedSettings.aiModel.trim()
+          ? parsedSettings.aiModel
+          : defaultAiModel(aiProvider)
+      },
       courses,
       notes: migratedNotes,
       selectedCourseId,
