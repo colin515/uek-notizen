@@ -36,6 +36,17 @@ export interface IctModule {
   assessmentVariants?: CourseAssessmentVariant[];
 }
 
+export interface UekProfileYear {
+  year: number;
+  moduleNumbers: string[];
+}
+
+export interface UekProfilePath {
+  label: string;
+  daysPerCourse?: number;
+  years: UekProfileYear[];
+}
+
 export const ICT_PROFILES: IctProfile[] = [
   { id: "informatik-ae", title: "Informatiker/in EFZ – Applikationsentwicklung", shortTitle: "Applikationsentwicklung", description: "Software, Web, Daten, Schnittstellen und moderne Entwicklungsprozesse." },
   { id: "informatik-pe", title: "Informatiker/in EFZ – Plattformentwicklung", shortTitle: "Plattformentwicklung", description: "Systeme, Netzwerke, Cloud, Security und Plattformbetrieb." },
@@ -49,6 +60,61 @@ export const ICT_PROFILES: IctProfile[] = [
   { id: "gebaeude-planung", title: "Gebäudeinformatiker/in EFZ – Planung", shortTitle: "Gebäudeinformatik Planung", description: "Planung, Dokumentation und Koordination von Gebäudetechnik." }
 ];
 
+export const UEK_PROFILE_PATHS: Partial<Record<ProfileId, UekProfilePath>> = {
+  "informatik-ae": {
+    label: "Standard-ÜK-Pfad Applikationsentwicklung",
+    daysPerCourse: 5,
+    years: [
+      { year: 1, moduleNumbers: ["187", "106"] },
+      { year: 2, moduleNumbers: ["294", "295", "210"] },
+      { year: 3, moduleNumbers: ["223", "335"] }
+    ]
+  },
+  "informatik-pe": {
+    label: "Standard-ÜK-Pfad Plattformentwicklung",
+    daysPerCourse: 5,
+    years: [
+      { year: 1, moduleNumbers: ["187", "106", "216"] },
+      { year: 2, moduleNumbers: ["188", "184"] },
+      { year: 3, moduleNumbers: ["190", "109"] }
+    ]
+  },
+  "mediamatik": {
+    label: "Standard-ÜK-Pfad Mediamatik",
+    daysPerCourse: 5,
+    years: [
+      { year: 1, moduleNumbers: ["101", "272"] },
+      { year: 2, moduleNumbers: ["269", "289"] },
+      { year: 3, moduleNumbers: ["276"] }
+    ]
+  },
+  "digital-business": {
+    label: "Standard-ÜK-Pfad Digital Business",
+    daysPerCourse: 5,
+    years: [
+      { year: 1, moduleNumbers: ["348", "376"] },
+      { year: 2, moduleNumbers: ["248", "325", "338"] },
+      { year: 3, moduleNumbers: ["368", "394"] }
+    ]
+  },
+  "ict-fachleute-2018": {
+    label: "ÜK-Pfad ICT-Fachleute BiVo 2018",
+    daysPerCourse: 6,
+    years: [
+      { year: 1, moduleNumbers: ["260", "304", "305"] },
+      { year: 2, moduleNumbers: ["261"] }
+    ]
+  },
+  "ict-fachleute-2026": {
+    label: "ÜK-Pfad ICT-Fachleute BiVo 2026",
+    daysPerCourse: 6,
+    years: [
+      { year: 1, moduleNumbers: ["313"] },
+      { year: 2, moduleNumbers: ["261", "208", "327"] }
+    ]
+  }
+};
+
 const p = (...profiles: ProfileId[]) => profiles;
 const commonDev = p("informatik-ae", "informatik-pe");
 const broadIct = p("informatik-ae", "informatik-pe", "betriebsinformatik", "ict-fachleute-2018");
@@ -58,7 +124,7 @@ export const ICT_MODULES: IctModule[] = [
     number: "187",
     title: "ICT-Benutzerendgeräte und Arbeitsplatz in Betrieb nehmen",
     field: "System Management",
-    profiles: p("ict-fachleute-2018", "ict-fachleute-2026", "betriebsinformatik"),
+    profiles: p("informatik-ae", "informatik-pe", "ict-fachleute-2018", "ict-fachleute-2026", "betriebsinformatik"),
     version: "2.0",
     summary: "ICT-Benutzerendgeräte und Arbeitsplätze nach Vorgaben produktiv einrichten, absichern, prüfen und über ihren Lebenszyklus betreuen.",
     topics: ["Betriebssystem & Applikationen", "Hardware & Peripherie", "Netzwerkzugang", "Security", "Troubleshooting", "Ergonomie & Nachhaltigkeit"]
@@ -108,7 +174,7 @@ export const ICT_MODULES: IctModule[] = [
     summary: "Prozessschritte mit einer Scriptsprache automatisieren und Umsysteme über Schnittstellen integrieren.",
     topics: ["Prozessanalyse", "Schnittstellen", "Automationslösung", "Scripting", "Tests", "Dokumentation"]
   },
-  { number: "101", title: "Webauftritt erstellen und veröffentlichen", field: "Web Engineering", profiles: broadIct, topics: ["HTML", "Webauftritt", "Publikation"] },
+  { number: "101", title: "Webauftritt erstellen und veröffentlichen", field: "Web Engineering", profiles: p(...broadIct, "mediamatik"), topics: ["HTML", "Webauftritt", "Publikation"] },
   { number: "106", title: "Datenbanken abfragen, bearbeiten und warten", field: "Data Management", profiles: commonDev, topics: ["SQL", "Abfragen", "Daten bearbeiten", "Datenbankpflege"] },
   { number: "109", title: "Dienste in der Public Cloud betreiben und überwachen", field: "System Management", profiles: commonDev, topics: ["Public Cloud", "Cloud-Dienste", "Monitoring", "Betrieb"] },
   { number: "110", title: "Daten mit Tools analysieren und darstellen", field: "Data Management", profiles: commonDev, topics: ["Datenanalyse", "Tools", "Visualisierung"] },
@@ -122,7 +188,10 @@ export const ICT_MODULES: IctModule[] = [
   { number: "188", title: "Services betreiben, warten und überwachen", field: "Service Management", profiles: p("informatik-pe", "betriebsinformatik"), topics: ["Servicebetrieb", "Wartung", "Monitoring"] },
   { number: "190", title: "Virtualisierungsplattform aufbauen und betreiben", field: "System Management", profiles: p("informatik-pe", "betriebsinformatik"), topics: ["Virtualisierung", "Plattform", "Betrieb"] },
   { number: "208", title: "Störungen in Virtualisierungs- und Cloudsystemen bearbeiten", field: "System Management", profiles: p("ict-fachleute-2026"), topics: ["Virtualisierung", "Cloud", "Störungen", "Troubleshooting"] },
-  { number: "216", title: "Internet of Everything-Endgeräte in bestehende Plattform integrieren", field: "System Management", profiles: p("ict-fachleute-2018", "ict-fachleute-2026"), topics: ["IoT", "Endgeräte", "Integration", "Plattform"] },
+  { number: "216", title: "Internet of Everything-Endgeräte in bestehende Plattform integrieren", field: "System Management", profiles: p("informatik-pe", "ict-fachleute-2018", "ict-fachleute-2026"), topics: ["IoT", "Endgeräte", "Integration", "Plattform"] },
+  { number: "210", title: "Public Cloud für Anwendungen nutzen", field: "System Management", profiles: p("informatik-ae"), topics: ["Public Cloud", "Cloud-Dienste", "Deployment", "Anwendungen", "Security"] },
+  { number: "223", title: "Multi-User-Applikationen objektorientiert realisieren", field: "Application Engineering", profiles: p("informatik-ae"), topics: ["Multi-User", "Objektorientierung", "Persistenz", "Nebenläufigkeit", "Testing"] },
+  { number: "260", title: "Office Werkzeuge praxisorientiert einsetzen", field: "Business Management", profiles: p("ict-fachleute-2018"), topics: ["Office", "Dokumente", "Tabellen", "Präsentationen", "Zusammenarbeit"] },
   { number: "241", title: "Innovative ICT-Lösungen initialisieren", field: "Business Engineering", profiles: commonDev, topics: ["Innovation", "Idee", "Anforderungen", "Konzept"] },
   { number: "245", title: "Innovative ICT-Lösungen umsetzen", field: "Business Engineering", profiles: commonDev, topics: ["Innovation", "Umsetzung", "ICT-Lösung"] },
   { number: "248", title: "ICT-Lösungen mit aktuellen Technologien realisieren", field: "Business Engineering", profiles: commonDev, topics: ["Technologieevaluation", "Prototyp", "Umsetzung", "Dokumentation"] },
@@ -192,7 +261,7 @@ export const ICT_MODULES: IctModule[] = [
   { number: "391", title: "Virtualisiertes IP-Telefonsystem in Betrieb nehmen", field: "Building Systems Engineering", profiles: p("gebaeude-kommunikation"), topics: ["IP-Telefonie", "Virtualisierung", "Inbetriebnahme"] },
 
   { number: "304", title: "Einzelplatz-Computer in Betrieb nehmen", field: "Hardware Management", profiles: p("betriebsinformatik", "ict-fachleute-2018"), topics: ["Hardware", "Betriebssystem", "Inbetriebnahme"] },
-  { number: "305", title: "Betriebssysteme installieren, konfigurieren und administrieren", field: "System Management", profiles: p("informatik-pe", "betriebsinformatik"), topics: ["Betriebssystem", "Installation", "Konfiguration", "Administration"] },
+  { number: "305", title: "Betriebssysteme installieren, konfigurieren und administrieren", field: "System Management", profiles: p("informatik-pe", "betriebsinformatik", "ict-fachleute-2018"), topics: ["Betriebssystem", "Installation", "Konfiguration", "Administration"] },
   { number: "313", title: "ICT-Mittel in Betrieb nehmen und kleines LAN aufbauen", field: "Network Management", profiles: p("ict-fachleute-2026"), topics: ["ICT-Mittel", "LAN", "Inbetriebnahme", "Netzwerk"] },
   { number: "319", title: "Applikationen entwerfen und implementieren", field: "Application Engineering", profiles: p("informatik-ae", "informatik-pe", "digital-business"), topics: ["Anforderungen", "Entwurf", "Implementierung", "Tests"] },
   { number: "320", title: "Applikationssicherheit implementieren", field: "Application Engineering", profiles: p("informatik-ae"), topics: ["Application Security", "Schutzmassnahmen", "Secure Coding"] },
