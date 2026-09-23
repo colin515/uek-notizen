@@ -1,3 +1,4 @@
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import hljs from "highlight.js/lib/core";
 import bash from "highlight.js/lib/languages/bash";
 import c from "highlight.js/lib/languages/c";
@@ -154,7 +155,7 @@ export function highlightAllCodeBlocks(root: HTMLElement): void {
   root.querySelectorAll<HTMLElement>("pre.code-block code").forEach(highlightCodeElement);
 }
 
-export function handleCodeTab(event: KeyboardEvent | React.KeyboardEvent<HTMLElement>): boolean {
+export function handleCodeTab(event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>): boolean {
   const target = event.target as HTMLElement | null;
   if (!target?.closest("pre.code-block")) return false;
   if (event.key !== "Tab") return false;
