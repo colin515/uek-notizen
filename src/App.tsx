@@ -1694,106 +1694,71 @@ export default function App() {
         <i className="liquid-orb orb-three"/>
       </div>
 
-      <aside className="nav-rail glass-surface">
-        <button className="rail-logo" title="ÜK Notizen" onClick={() => setSidebar(true)}>
-          <span className="brand-mark">ÜK</span>
-        </button>
-
-        <nav className="rail-nav" aria-label="Hauptnavigation">
-          <button className={sidebar ? "active" : ""} title="Bibliothek" onClick={() => setSidebar(value => !value)}>
-            {sidebar ? <PanelLeftClose size={19}/> : <PanelLeftOpen size={19}/>}
-            <span>Bibliothek</span>
-          </button>
-          <button className={filter === "quick" ? "active" : ""} title="Schnellnotizen" onClick={() => { setSidebar(true); selectQuickNotes(); }}>
-            <Zap size={18}/><span>Quick</span>
-          </button>
-          <button className={moduleHubOpen ? "active" : ""} title="Module & Noten" onClick={() => setModuleHubOpen(true)}>
-            <GraduationCap size={19}/><span>Module</span>
-          </button>
-          <button className={filter === "favorites" ? "active" : ""} title="Favoriten" onClick={() => { setSidebar(true); setFilter("favorites"); }}>
-            <Heart size={18}/><span>Favoriten</span>
-          </button>
-          <button className={filter === "archive" ? "active" : ""} title="Archiv" onClick={() => { setSidebar(true); setFilter("archive"); }}>
-            <Archive size={18}/><span>Archiv</span>
-          </button>
-          <button className={aiOpen ? "active ai-rail-button" : "ai-rail-button"} title="KI-Assistent" onClick={() => selected ? setAiOpen(value => !value) : setToast("Öffne zuerst eine Notiz für den KI-Assistenten")}>
-            <Sparkles size={18}/><span>KI</span>
-          </button>
-        </nav>
-
-        <div className="rail-footer">
-          <button title={data.settings.theme === "light" ? "Dark Mode" : "Light Mode"} onClick={() => setData(current => ({ ...current, settings: { ...current.settings, theme: current.settings.theme === "light" ? "dark" : "light" } }))}>
-            {data.settings.theme === "light" ? <Moon size={18}/> : <Sun size={18}/>}
-            <span>Design</span>
-          </button>
-          <button className={settingsOpen ? "active" : ""} title="Einstellungen" onClick={() => setSettingsOpen(true)}>
-            <SettingsIcon size={18}/><span>Setup</span>
-          </button>
-          <button className="rail-user" title={data.settings.name || "Profil"} onClick={() => setSettingsOpen(true)}>
-            <span>{(data.settings.name || "ÜK").trim().slice(0, 1).toUpperCase()}</span>
-          </button>
-        </div>
-      </aside>
-
       {sidebar && (
-        <aside className="library-panel glass-surface">
-          <div className="library-header">
-            <div>
-              <span className="library-eyebrow">Workspace</span>
-              <strong>Bibliothek</strong>
-            </div>
-            <button className="icon-button glass-button" title="Bibliothek schliessen" onClick={() => setSidebar(false)}><PanelLeftClose size={17}/></button>
-          </div>
-
-          <div className="create-actions">
-            <button className="new-note" onClick={() => setCourseModalOpen(true)}>
-              <Plus size={17}/> Neuer ÜK
+        <aside className="sidebar-v2 glass-regular">
+          <div className="sidebar-v2-head">
+            <button className="app-identity" title="ÜK Notizen" onClick={() => setFilter("course")}>
+              <span className="brand-mark">ÜK</span>
+              <span><strong>ÜK Notizen</strong><small>{data.settings.name || "Workspace"}</small></span>
             </button>
-            <button className="quick-note-button" onClick={() => addQuickNote()}>
-              <Zap size={16}/> Quick Note
+            <button className="icon-button subtle-control" title="Seitenleiste schliessen" onClick={() => setSidebar(false)}>
+              <PanelLeftClose size={17}/>
             </button>
           </div>
 
-          <label className="search glass-control">
-            <Search size={16}/>
-            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Notizen durchsuchen…"/>
+          <div className="sidebar-v2-actions">
+            <button className="primary create-course" onClick={() => setCourseModalOpen(true)}><Plus size={15}/> Neuer ÜK</button>
+            <button className="icon-button quick-create" title="Schnellnotiz" onClick={() => addQuickNote()}><Zap size={16}/></button>
+          </div>
+
+          <label className="search sidebar-search">
+            <Search size={15}/>
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Suchen"/>
             <kbd>⌘K</kbd>
           </label>
-          {query.trim() && <div className="search-hint">Suche nach Titel, Inhalt, Tags und ähnlichen Begriffen.</div>}
 
-          <div className="library-section-heading">
-            <span>ÜK Module</span>
-            <button title="ÜK erstellen" onClick={() => setCourseModalOpen(true)}><Plus size={14}/></button>
+          <nav className="sidebar-v2-nav" aria-label="Bereiche">
+            <button className={filter === "course" ? "active" : ""} onClick={() => { setFilter("course"); if (data.selectedCourseId) setData(current => ({ ...current, selectedCourseId: current.selectedCourseId })); }}>
+              <Layers3 size={15}/><span>ÜKs</span>
+            </button>
+            <button className={filter === "quick" ? "active" : ""} onClick={selectQuickNotes}>
+              <Zap size={15}/><span>Quick</span>
+            </button>
+            <button className={filter === "favorites" ? "active" : ""} onClick={() => setFilter("favorites")}>
+              <Heart size={15}/><span>Favoriten</span>
+            </button>
+            <button className={filter === "archive" ? "active" : ""} onClick={() => setFilter("archive")}>
+              <Archive size={15}/><span>Archiv</span>
+            </button>
+          </nav>
+
+          <div className="sidebar-section-head">
+            <span>Module</span>
+            <div>
+              <button title="Module & Noten" onClick={() => setModuleHubOpen(true)}><GraduationCap size={14}/></button>
+              <button title="ÜK erstellen" onClick={() => setCourseModalOpen(true)}><Plus size={14}/></button>
+            </div>
           </div>
 
-          <div className="course-list glass-list">
-            {data.courses.map((course, index) => (
+          <div className="course-list sidebar-course-list">
+            {data.courses.map(course => (
               <div key={course.id} className={filter === "course" && course.id === selectedCourse?.id ? "course-card active" : "course-card"}>
                 <button className="course-main" onClick={() => selectCourse(course)}>
-                  <span className="course-icon"><b>{index + 1}</b></span>
+                  <span className="course-icon"><Layers3 size={14}/></span>
                   <span><strong>{course.number}</strong><small>{course.title}</small></span>
                 </button>
                 <b className="course-count">{data.notes.filter(note => note.courseId === course.id && !note.archived).length}</b>
-                <button
-                  className="course-delete"
-                  title="ÜK löschen"
-                  onClick={event => {
-                    event.stopPropagation();
-                    removeCourse(course.id);
-                  }}
-                >
-                  <Trash2 size={13}/>
-                </button>
+                <button className="course-delete" title="ÜK löschen" onClick={event => { event.stopPropagation(); removeCourse(course.id); }}><Trash2 size={13}/></button>
               </div>
             ))}
           </div>
 
-          <div className="library-section-heading notes-heading">
+          <div className="sidebar-section-head notes-head">
             <span>{filter === "quick" ? "Schnellnotizen" : filter === "favorites" ? "Favoriten" : filter === "archive" ? "Archiv" : "Notizen"}</span>
             <b>{visible.length}</b>
           </div>
 
-          <div className="note-list">
+          <div className="note-list sidebar-note-list">
             {visible.map(note => (
               <button
                 key={note.id}
@@ -1803,35 +1768,42 @@ export default function App() {
               >
                 <div className="note-card-title"><strong>{note.title}</strong>{note.favorite && <Heart size={11} fill="currentColor"/>}</div>
                 <span>{courseLabel(note.courseId)} · {new Date(note.updatedAt).toLocaleDateString("de-CH")}</span>
-                <p>{stripHtml(note.content).slice(0, 88) || "Leere Notiz"}</p>
+                <p>{stripHtml(note.content).slice(0, 90) || "Leere Notiz"}</p>
               </button>
             ))}
-            {!visible.length && <div className="muted search-empty">Keine passende Notiz gefunden.</div>}
+            {!visible.length && <div className="muted search-empty">Keine passende Notiz.</div>}
+          </div>
+
+          <div className="sidebar-v2-footer">
+            <button title="Module & Noten" onClick={() => setModuleHubOpen(true)}><GraduationCap size={16}/><span>Module & Noten</span></button>
+            <button title={data.settings.theme === "light" ? "Dark Mode" : "Light Mode"} onClick={() => setData(current => ({ ...current, settings: { ...current.settings, theme: current.settings.theme === "light" ? "dark" : "light" } }))}>
+              {data.settings.theme === "light" ? <Moon size={16}/> : <Sun size={16}/>}<span>Darstellung</span>
+            </button>
+            <button title="Einstellungen" onClick={() => setSettingsOpen(true)}><SettingsIcon size={16}/><span>Einstellungen</span></button>
           </div>
         </aside>
       )}
 
       <main className="workspace">
-        <header className="topbar">
-          <button className="icon-button" title="Seitenleiste" onClick={() => setSidebar(value => !value)}>
-            {sidebar ? <PanelLeftClose size={19}/> : <PanelLeftOpen size={19}/>}
-          </button>
-
-          <div className="breadcrumbs">
-            <span>{selectedCourse ? selectedCourse.number + " · " + selectedCourse.title : selected?.courseId === null || quickMode ? "Schnellnotizen" : "ÜK Notizen"}</span>
-            {selected && <><span>/</span><strong>{selected.title}</strong></>}
+        <header className="topbar-v2">
+          <div className="toolbar-cluster glass-regular toolbar-cluster-leading">
+            {!sidebar && (
+              <button className="icon-button" title="Seitenleiste öffnen" onClick={() => setSidebar(true)}>
+                <PanelLeftOpen size={18}/>
+              </button>
+            )}
+            <div className="breadcrumbs">
+              <span>{selectedCourse ? selectedCourse.number + " · " + selectedCourse.title : selected?.courseId === null || quickMode ? "Schnellnotizen" : "ÜK Notizen"}</span>
+              {selected && <><span>/</span><strong>{selected.title}</strong></>}
+            </div>
           </div>
 
-          <div className="top-actions">
-            <button className="icon-button" title="Darstellung wechseln" onClick={() => setData(current => ({ ...current, settings: { ...current.settings, theme: current.settings.theme === "light" ? "dark" : "light" } }))}>
-              {data.settings.theme === "light" ? <Moon size={18}/> : <Sun size={18}/>}
-            </button>
-
-            {selected && <button className={"secondary ai-top-btn " + (aiOpen ? "active" : "")} title="KI-Assistent" onClick={() => setAiOpen(value => !value)}><Sparkles size={16}/> <strong>AI Assistant</strong></button>}
-            {selectedCourse && <button className="secondary export-action" onClick={exportCourse}><Download size={16}/> Word</button>}
-            {selectedCourse && <button className="secondary export-action compact-export" title="Als TXT exportieren" onClick={() => void exportTxt()}><Download size={15}/> TXT</button>}
-            {selectedCourse && <button className="primary" onClick={() => addNote()}><FilePlus2 size={16}/> Neue Notiz</button>}
-            {quickMode && <button className="primary" onClick={() => addQuickNote()}><Zap size={16}/> Schnellnotiz</button>}
+          <div className="toolbar-cluster glass-regular toolbar-cluster-actions">
+            {selectedCourse && <button className="top-control" title="Als Word exportieren" onClick={exportCourse}><Download size={15}/><span>Word</span></button>}
+            {selectedCourse && <button className="top-control compact-control" title="Als TXT exportieren" onClick={() => void exportTxt()}><Download size={14}/><span>TXT</span></button>}
+            {selected && <button className={"top-control ai-control " + (aiOpen ? "active" : "")} title="KI-Assistent" onClick={() => setAiOpen(value => !value)}><Sparkles size={15}/><span>KI</span></button>}
+            {selectedCourse && <button className="top-control primary-control" onClick={() => addNote()}><FilePlus2 size={15}/><span>Neue Notiz</span></button>}
+            {quickMode && <button className="top-control primary-control" onClick={() => addQuickNote()}><Zap size={15}/><span>Schnellnotiz</span></button>}
           </div>
         </header>
 
@@ -1878,27 +1850,33 @@ export default function App() {
               <span>Bearbeitet {new Date(selected.updatedAt).toLocaleString("de-CH", { dateStyle: "short", timeStyle: "short" })}</span>
             </div>
 
-            <div className="toolbar">
-              <button title="Fett" onClick={() => format("bold")}><b>B</b></button>
-              <button title="Kursiv" onClick={() => format("italic")}><i>I</i></button>
-              <button title="Unterstrichen" onClick={() => format("underline")}><u>U</u></button>
-              <span/>
-              <button title="Überschrift" onClick={() => format("formatBlock", "h2")}>H2</button>
-              <button title="Stichpunkte" onClick={() => format("insertUnorderedList")}>• Liste</button>
-              <button title="Nummerierte Liste" onClick={() => format("insertOrderedList")}>1. Liste</button>
-              <button title="Zitat" onClick={() => format("formatBlock", "blockquote")}>❝</button>
-              <button title="Bild einfügen" onClick={insertImage}><ImagePlus size={16}/></button>
-              <button title="Checkliste" onClick={() => {
-                editorRef.current?.focus();
-                document.execCommand("insertHTML", false, '<div class="checklist-block"><p>☐&nbsp;</p></div><p><br></p>');
-                patchNote({ content: editorRef.current?.innerHTML ?? "" });
-              }}><ListChecks size={16}/></button>
+            <div className="editor-toolbar-row">
+              <div className="toolbar-group glass-regular">
+                <button title="Fett" onClick={() => format("bold")}><b>B</b></button>
+                <button title="Kursiv" onClick={() => format("italic")}><i>I</i></button>
+                <button title="Unterstrichen" onClick={() => format("underline")}><u>U</u></button>
+                <span className="group-divider"/>
+                <button title="Überschrift" onClick={() => format("formatBlock", "h2")}>H2</button>
+                <button title="Stichpunkte" onClick={() => format("insertUnorderedList")}>•</button>
+                <button title="Nummerierte Liste" onClick={() => format("insertOrderedList")}>1.</button>
+                <button title="Zitat" onClick={() => format("formatBlock", "blockquote")}>❝</button>
+              </div>
 
-              <div className="toolbar-spacer"/>
-              <button title="Favorit" onClick={() => patchNote({ favorite: !selected.favorite })}><Heart size={16} fill={selected.favorite ? "currentColor" : "none"}/></button>
-              <button className="toolbar-ai-btn" title="KI-Chat" onClick={openAi}><Sparkles size={15}/> <span>KI</span></button>
-              <button title="Archivieren" onClick={() => patchNote({ archived: !selected.archived })}><Archive size={16}/></button>
-              <button className="danger" title="Löschen" onClick={() => removeNote()}><Trash2 size={16}/></button>
+              <div className="toolbar-group glass-regular">
+                <button title="Bild einfügen" onClick={insertImage}><ImagePlus size={15}/></button>
+                <button title="Checkliste" onClick={() => {
+                  editorRef.current?.focus();
+                  document.execCommand("insertHTML", false, '<div class="checklist-block"><p>☐&nbsp;</p></div><p><br></p>');
+                  patchNote({ content: editorRef.current?.innerHTML ?? "" });
+                }}><ListChecks size={15}/></button>
+              </div>
+
+              <div className="toolbar-group glass-regular toolbar-group-end">
+                <button title="Favorit" onClick={() => patchNote({ favorite: !selected.favorite })}><Heart size={15} fill={selected.favorite ? "currentColor" : "none"}/></button>
+                <button className="toolbar-ai-btn" title="KI-Chat" onClick={openAi}><Sparkles size={14}/><span>KI</span></button>
+                <button title="Archivieren" onClick={() => patchNote({ archived: !selected.archived })}><Archive size={15}/></button>
+                <button className="danger" title="Löschen" onClick={() => removeNote()}><Trash2 size={15}/></button>
+              </div>
             </div>
 
             {slashQuery !== null && (
@@ -2003,7 +1981,7 @@ export default function App() {
       </main>
 
       {aiOpen && (
-        <aside className="ai-sidecar glass-surface">
+        <aside className="ai-sidecar glass-regular">
             <div className="drawer-header">
               <div><Bot size={20}/><strong>KI-Assistent · {activeAiProvider.shortLabel}</strong></div>
               <button className="icon-button" onClick={() => { setAiOpen(false); setSelectionTextForAi(""); }}><X size={19}/></button>
