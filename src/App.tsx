@@ -430,38 +430,53 @@ export default function App() {
           const firstVariant = variants[0];
           const content = moduleStarterHtml(official);
 
-          setData(current => ({
-            ...current,
-            courses: current.courses.map(item => item.id === course.id
-              ? {
-                  ...item,
-                  number: "M" + official.number,
-                  title: official.title,
-                  catalogModuleNumber: official.number,
-                  moduleField: official.field,
-                  moduleTopics: official.topics,
-                  moduleSummary: official.summary,
-                  moduleCompetence: official.competence,
-                  moduleObject: official.object,
-                  moduleActionGoals: official.actionGoals,
-                  moduleKnowledge: official.knowledge,
-                  moduleDegrees: official.degrees,
-                  officialSourceUrl: official.sourceUrl,
-                  officialDataLoadedAt: new Date().toISOString(),
-                  assessmentVariants: variants,
-                  assessmentVariantId: item.assessmentVariantId ?? firstVariant?.id,
-                  assessments: item.assessments?.some(assessment => assessment.grade !== null)
-                    ? item.assessments
-                    : firstVariant?.assessments.map(assessment => ({ ...assessment, grade: null })) ?? []
-                }
-              : item),
-            notes: current.notes.map(note =>
+          setData(current => {
+            const existingOverview = current.notes.find(note =>
+              note.courseId === course.id &&
+              /^Modul\s+.+\s+·\s+(Überblick|Komplettübersicht)$/.test(note.title)
+            );
+            const overview = existingOverview
+              ? null
+              : createNote(course.id, "Modul " + official.number + " · Komplettübersicht", content);
+
+            const notes = current.notes.map(note =>
               note.courseId === course.id &&
               /^Modul\s+.+\s+·\s+(Überblick|Komplettübersicht)$/.test(note.title)
                 ? { ...note, title: "Modul " + official.number + " · Komplettübersicht", content, updatedAt: new Date().toISOString() }
                 : note
-            )
-          }));
+            );
+
+            return {
+              ...current,
+              courses: current.courses.map(item => item.id === course.id
+                ? {
+                    ...item,
+                    number: "M" + official.number,
+                    title: official.title,
+                    catalogModuleNumber: official.number,
+                    moduleField: official.field,
+                    moduleTopics: official.topics,
+                    moduleSummary: official.summary,
+                    moduleCompetence: official.competence,
+                    moduleObject: official.object,
+                    moduleActionGoals: official.actionGoals,
+                    moduleKnowledge: official.knowledge,
+                    moduleDegrees: official.degrees,
+                    officialSourceUrl: official.sourceUrl,
+                    officialDataLoadedAt: new Date().toISOString(),
+                    assessmentVariants: variants,
+                    assessmentVariantId: item.assessmentVariantId ?? firstVariant?.id,
+                    assessments: item.assessments?.some(assessment => assessment.grade !== null)
+                      ? item.assessments
+                      : firstVariant?.assessments.map(assessment => ({ ...assessment, grade: null })) ?? []
+                  }
+                : item),
+              notes: overview ? [overview, ...notes] : notes,
+              selectedNoteId: overview && current.selectedCourseId === course.id && !current.selectedNoteId
+                ? overview.id
+                : current.selectedNoteId
+            };
+          });
         })
         .catch(() => {
           // Existing local data stays intact. The app can try again after a restart.
