@@ -1,6 +1,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, Heart, HelpCircle, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, Workflow, X, Zap } from "lucide-react";
+import { Archive, Bot, BookOpen, Check, ChevronDown, Download, FilePlus2, FolderOpen, GraduationCap, Heart, HelpCircle, ImagePlus, Layers3, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Sparkles, Sun, Tag, Trash2, Workflow, X, Zap } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { askGroq, askGroqChat, type AiAction, type AiChatResult } from "./ai";
 import { exportCourseDocx } from "./docxExport";
@@ -8,6 +8,8 @@ import { exportCourseTxt } from "./txtExport";
 import { createId, loadData, sampleCourse, sampleNote, saveData } from "./storage";
 import { slashCommands, slashCommandMatches, slashReplacement } from "./editorBlocks";
 import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchartHtml, type FlowchartData } from "./FlowchartEditor";
+import ModuleHub from "./ModuleHub";
+import { ICT_PROFILES, findIctModule, moduleStarterHtml, normalizeModuleNumber, type IctModule } from "./moduleCatalog";
 import type { AppData, Course, Note } from "./types";
 
 type Filter = "course" | "quick" | "favorites" | "archive";
@@ -301,6 +303,7 @@ export default function App() {
   const [filter, setFilter] = useState<Filter>("course");
   const [sidebar, setSidebar] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moduleHubOpen, setModuleHubOpen] = useState(false);
   const [courseModalOpen, setCourseModalOpen] = useState(false);
   const [courseDraft, setCourseDraft] = useState({ number: "", title: "" });
   const [aiOpen, setAiOpen] = useState(false);
@@ -311,7 +314,7 @@ export default function App() {
     { role: "assistant", content: "Ich kann in ÜK Notizen nicht nur antworten, sondern auch ÜKs und Notizen erstellen, Texte verbessern und Inhalte direkt in deinem Dokument ändern. Sag mir einfach, was ich machen soll." }
   ]);
   const [toast, setToast] = useState("");
-  const [setup, setSetup] = useState({ name: data.settings.name, apiKey: data.settings.apiKey });
+  const [setup, setSetup] = useState({ name: data.settings.name, apiKey: data.settings.apiKey, educationProfileId: data.settings.educationProfileId });
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [editorSyncVersion, setEditorSyncVersion] = useState(0);
@@ -355,6 +358,7 @@ export default function App() {
   const selectedCourse = data.courses.find(course => course.id === data.selectedCourseId) ?? null;
   const selected = data.notes.find(note => note.id === data.selectedNoteId) ?? null;
   const quickMode = filter === "quick";
+  const recognizedDraftModule = findIctModule(courseDraft.number, data.settings.educationProfileId);
 
   const courseLabel = (courseId: string | null) => {
     if (!courseId) return "Schnellnotiz";
@@ -434,30 +438,73 @@ export default function App() {
     setFilter("quick");
   };
 
-  const addCourse = (numberOverride?: string, titleOverride?: string): string | null => {
-    const number = (numberOverride ?? courseDraft.number).trim();
-    const title = (titleOverride ?? courseDraft.title).trim();
+  const addCourse = (numberOverride?: string, titleOverride?: string, catalogOverride?: IctModule): string | null => {
+    const rawNumber = (numberOverride ?? courseDraft.number).trim();
+    const catalogModule = catalogOverride ?? findIctModule(rawNumber, data.settings.educationProfileId);
+    const title = (titleOverride ?? courseDraft.title).trim() || catalogModule?.title || "";
     if (!title) return null;
 
     const course: Course = {
       id: createId(),
-      number: number || "ÜK",
+      number: catalogModule ? "M" + catalogModule.number : (rawNumber || "ÜK"),
       title,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      ...(catalogModule ? {
+        catalogModuleNumber: catalogModule.number,
+        moduleField: catalogModule.field,
+        moduleTopics: catalogModule.topics,
+        moduleSummary: catalogModule.summary,
+        isCustom: false,
+        assessments: []
+      } : {
+        isCustom: true,
+        assessments: []
+      })
     };
+    const starterNote = catalogModule
+      ? createNote(course.id, "Modul " + catalogModule.number + " · Überblick", moduleStarterHtml(catalogModule))
+      : null;
 
     setData(current => ({
       ...current,
       courses: [...current.courses, course],
+      notes: starterNote ? [starterNote, ...current.notes] : current.notes,
       selectedCourseId: course.id,
-      selectedNoteId: null
+      selectedNoteId: starterNote?.id ?? null
     }));
 
     setCourseDraft({ number: "", title: "" });
     setCourseModalOpen(false);
+    setModuleHubOpen(false);
     setFilter("course");
-    setToast("ÜK wurde erstellt");
+    setToast(catalogModule ? "Modul " + catalogModule.number + " erkannt und erstellt" : "Eigener ÜK wurde erstellt");
     return course.id;
+  };
+
+  const addCourseFromModule = (module: IctModule) => {
+    const existing = data.courses.find(course => normalizeModuleNumber(course.number) === module.number);
+    if (existing) {
+      selectCourse(existing);
+      setModuleHubOpen(false);
+      setToast("Modul " + module.number + " ist bereits bei deinen ÜKs");
+      return;
+    }
+    addCourse(module.number, module.title, module);
+  };
+
+  const addTemplateNote = (courseId: string, title: string, html: string) => {
+    const course = data.courses.find(item => item.id === courseId);
+    if (!course) return;
+    const note = createNote(courseId, title, html);
+    setData(current => ({
+      ...current,
+      notes: [note, ...current.notes],
+      selectedCourseId: courseId,
+      selectedNoteId: note.id
+    }));
+    setFilter("course");
+    setModuleHubOpen(false);
+    setToast("Template als Notiz erstellt");
   };
 
   const addNote = (title = "Unbenannte Notiz", content = "<p></p>", courseId = selectedCourse?.id): string | null => {
@@ -643,11 +690,19 @@ export default function App() {
 
       for (const action of result.actions) {
         if (action.type === "create_course") {
+          const catalogModule = findIctModule(action.number ?? "", current.settings.educationProfileId);
           const course: Course = {
             id: createId(),
-            number: (action.number ?? "ÜK").trim() || "ÜK",
-            title: action.title.trim() || "Neuer ÜK",
-            createdAt: new Date().toISOString()
+            number: catalogModule ? "M" + catalogModule.number : ((action.number ?? "ÜK").trim() || "ÜK"),
+            title: catalogModule?.title ?? (action.title.trim() || "Neuer ÜK"),
+            createdAt: new Date().toISOString(),
+            ...(catalogModule ? {
+              catalogModuleNumber: catalogModule.number,
+              moduleField: catalogModule.field,
+              moduleTopics: catalogModule.topics,
+              moduleSummary: catalogModule.summary,
+              assessments: []
+            } : { isCustom: true, assessments: [] })
           };
           courses.push(course);
           createdCourseId = course.id;
@@ -941,6 +996,7 @@ export default function App() {
             </button>
             <button className={filter === "favorites" ? "active" : ""} onClick={() => setFilter("favorites")}><Heart size={16}/> Favoriten</button>
             <button className={filter === "archive" ? "active" : ""} onClick={() => setFilter("archive")}><Archive size={16}/> Archiv</button>
+            <button onClick={() => setModuleHubOpen(true)}><GraduationCap size={16}/> Module & Noten</button>
           </nav>
 
           <div className="course-heading">
@@ -1204,9 +1260,29 @@ export default function App() {
               <strong>Neuen ÜK erstellen</strong>
               <button className="icon-button" onClick={() => setCourseModalOpen(false)}><X size={19}/></button>
             </div>
-            <label className="field">ÜK-Nummer<input autoFocus value={courseDraft.number} onChange={event => setCourseDraft({ ...courseDraft, number: event.target.value })} placeholder="z. B. ÜK 187"/></label>
-            <label className="field">ÜK-Titel<input value={courseDraft.title} onChange={event => setCourseDraft({ ...courseDraft, title: event.target.value })} placeholder="z. B. ICT-Arbeitsplatz in Betrieb nehmen"/></label>
-            <button className="primary full" disabled={!courseDraft.title.trim()} onClick={() => addCourse()}><Plus size={16}/> ÜK erstellen</button>
+            <label className="field">Modulnummer
+              <input
+                autoFocus
+                value={courseDraft.number}
+                onChange={event => {
+                  const value = event.target.value;
+                  const module = findIctModule(value, data.settings.educationProfileId);
+                  setCourseDraft({ number: value, title: module?.title ?? "" });
+                }}
+                placeholder="z. B. 294 oder M294"
+              />
+              <small>Bei bekannten ICT-Modulen wird der Titel automatisch erkannt.</small>
+            </label>
+            {recognizedDraftModule && (
+              <div className="module-recognition-inline">
+                <span>Erkannt · {recognizedDraftModule.field}</span>
+                <strong>M{recognizedDraftModule.number} · {recognizedDraftModule.title}</strong>
+                <p>{recognizedDraftModule.topics.slice(0, 5).join(" · ")}</p>
+              </div>
+            )}
+            <label className="field">ÜK-Titel<input value={courseDraft.title} onChange={event => setCourseDraft({ ...courseDraft, title: event.target.value })} placeholder="Wird bei ICT-Modulen automatisch ausgefüllt"/></label>
+            <button className="secondary full" onClick={() => { setCourseModalOpen(false); setModuleHubOpen(true); }}><GraduationCap size={16}/> Modulbaukasten durchsuchen</button>
+            <button className="primary full" disabled={!courseDraft.title.trim() && !recognizedDraftModule} onClick={() => addCourse()}><Plus size={16}/> {recognizedDraftModule ? "Modul hinzufügen" : "Eigenen ÜK erstellen"}</button>
           </div>
         </div>
       )}
@@ -1219,11 +1295,31 @@ export default function App() {
               <button className="icon-button" onClick={() => setSettingsOpen(false)}><X size={19}/></button>
             </div>
             <label className="field">Dein Name<input value={data.settings.name} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, name: event.target.value } }))}/></label>
+            <label className="field">Ausbildung
+              <select value={data.settings.educationProfileId} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, educationProfileId: event.target.value } }))}>
+                {ICT_PROFILES.map(profile => <option key={profile.id} value={profile.id}>{profile.title}</option>)}
+              </select>
+              <small>Damit werden passende Module im Modulbaukasten zuerst angezeigt.</small>
+            </label>
             <label className="field">Groq API-Key<input type="password" value={data.settings.apiKey} onChange={event => setData(current => ({ ...current, settings: { ...current.settings, apiKey: event.target.value } }))} placeholder="gsk_…"/><small>Wird nur lokal auf deinem Gerät gespeichert.</small></label>
             <button className="secondary full tutorial-settings-button" onClick={() => { setSettingsOpen(false); setTutorialStep(0); setTutorialOpen(true); }}><HelpCircle size={16}/> Kurzes Tutorial anzeigen</button>
             <button className="primary full" onClick={() => { setSettingsOpen(false); setToast("Einstellungen gespeichert"); }}>Speichern</button>
           </div>
         </div>
+      )}
+
+      {moduleHubOpen && (
+        <ModuleHub
+          data={data}
+          setData={setData}
+          onClose={() => setModuleHubOpen(false)}
+          onOpenCourse={course => {
+            selectCourse(course);
+            setModuleHubOpen(false);
+          }}
+          onCreateCourseFromModule={addCourseFromModule}
+          onCreateTemplateNote={addTemplateNote}
+        />
       )}
 
       {flowchartDraft && (
@@ -1270,20 +1366,26 @@ function TutorialOverlay({
       text: "Erstelle links einen ÜK und darin beliebig viele Notizen. Am Ende exportierst du den ganzen ÜK als Word-Dokument."
     },
     {
+      icon: <GraduationCap size={30}/>,
+      eyebrow: "2 · Modulbaukasten",
+      title: "Modulnummer eingeben – fertig",
+      text: "Wähle deine Ausbildung und gib zum Beispiel 294 ein. Die App erkennt bekannte ICT-Module, erstellt einen passenden Überblick und bietet unter „Module & Noten“ Prüfungen, Gewichtungen und Noten."
+    },
+    {
       icon: <Zap size={30}/>,
-      eyebrow: "2 · Schnellnotizen",
+      eyebrow: "3 · Schnellnotizen",
       title: "Nicht alles braucht einen ÜK",
       text: "Mit Schnellnotizen hältst du spontane Gedanken, Aufgaben oder Infos fest. Später kannst du sie über die Auswahl oben einem ÜK zuordnen."
     },
     {
       icon: <Workflow size={30}/>,
-      eyebrow: "3 · Slash-Menü",
+      eyebrow: "4 · Slash-Menü",
       title: "Tippe / im Editor",
       text: "Mit / fügst du Tabellen, Checklisten, Infoboxen, Code, Spalten, Bilder und Flowcharts ein. Flowcharts lassen sich per Drag & Drop bearbeiten und verbinden."
     },
     {
       icon: <Sparkles size={30}/>,
-      eyebrow: "4 · KI",
+      eyebrow: "5 · KI",
       title: "Die KI kann direkt mitarbeiten",
       text: "Sie kann erklären, zusammenfassen, Texte verbessern sowie ÜKs und Notizen anlegen. Du kannst auch ausdrücklich eine Schnellnotiz erstellen lassen."
     }
@@ -1329,8 +1431,8 @@ function Onboarding({
   setSetup,
   finish
 }: {
-  setup: { name: string; apiKey: string };
-  setSetup: (value: { name: string; apiKey: string }) => void;
+  setup: { name: string; apiKey: string; educationProfileId: string };
+  setSetup: (value: { name: string; apiKey: string; educationProfileId: string }) => void;
   finish: () => void;
 }) {
   const [step, setStep] = useState(0);
@@ -1348,7 +1450,7 @@ function Onboarding({
         </>}
 
         {step === 1 && <>
-          <span className="eyebrow">Schritt 1 von 2</span>
+          <span className="eyebrow">Schritt 1 von 3</span>
           <h1>Wie heisst du?</h1>
           <p>Dein Name erscheint auch in exportierten ÜK-Dokumenten.</p>
           <label className="field">Name<input autoFocus value={setup.name} onChange={event => setSetup({ ...setup, name: event.target.value })} placeholder="Dein Name"/></label>
@@ -1356,7 +1458,19 @@ function Onboarding({
         </>}
 
         {step === 2 && <>
-          <span className="eyebrow">Schritt 2 von 2</span>
+          <span className="eyebrow">Schritt 2 von 3</span>
+          <h1>Welche Ausbildung machst du?</h1>
+          <p>Damit erkennt die App passende ICT-Module schneller und zeigt sie im Modulbaukasten zuerst.</p>
+          <label className="field">Ausbildung
+            <select value={setup.educationProfileId} onChange={event => setSetup({ ...setup, educationProfileId: event.target.value })}>
+              {ICT_PROFILES.map(profile => <option key={profile.id} value={profile.id}>{profile.title}</option>)}
+            </select>
+          </label>
+          <button className="primary full" onClick={() => setStep(3)}>Weiter</button>
+        </>}
+
+        {step === 3 && <>
+          <span className="eyebrow">Schritt 3 von 3</span>
           <h1>KI verbinden</h1>
           <p>Füge deinen Groq API-Key ein. Du kannst ihn später ändern.</p>
           <label className="field">Groq API-Key<input autoFocus type="password" value={setup.apiKey} onChange={event => setSetup({ ...setup, apiKey: event.target.value })} placeholder="gsk_…"/><small>Der Schlüssel bleibt lokal auf deinem Gerät.</small></label>
