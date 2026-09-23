@@ -314,7 +314,7 @@ export default function App() {
     { role: "assistant", content: "Ich kann in ÜK Notizen nicht nur antworten, sondern auch ÜKs und Notizen erstellen, Texte verbessern und Inhalte direkt in deinem Dokument ändern. Sag mir einfach, was ich machen soll." }
   ]);
   const [toast, setToast] = useState("");
-  const [setup, setSetup] = useState({ name: data.settings.name, apiKey: data.settings.apiKey });
+  const [setup, setSetup] = useState({ name: data.settings.name, apiKey: data.settings.apiKey, educationProfileId: data.settings.educationProfileId });
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [editorSyncVersion, setEditorSyncVersion] = useState(0);
@@ -1267,7 +1267,7 @@ export default function App() {
                 onChange={event => {
                   const value = event.target.value;
                   const module = findIctModule(value, data.settings.educationProfileId);
-                  setCourseDraft(current => ({ number: value, title: module?.title ?? current.title }));
+                  setCourseDraft({ number: value, title: module?.title ?? "" });
                 }}
                 placeholder="z. B. 294 oder M294"
               />
@@ -1425,8 +1425,8 @@ function Onboarding({
   setSetup,
   finish
 }: {
-  setup: { name: string; apiKey: string };
-  setSetup: (value: { name: string; apiKey: string }) => void;
+  setup: { name: string; apiKey: string; educationProfileId: string };
+  setSetup: (value: { name: string; apiKey: string; educationProfileId: string }) => void;
   finish: () => void;
 }) {
   const [step, setStep] = useState(0);
@@ -1444,7 +1444,7 @@ function Onboarding({
         </>}
 
         {step === 1 && <>
-          <span className="eyebrow">Schritt 1 von 2</span>
+          <span className="eyebrow">Schritt 1 von 3</span>
           <h1>Wie heisst du?</h1>
           <p>Dein Name erscheint auch in exportierten ÜK-Dokumenten.</p>
           <label className="field">Name<input autoFocus value={setup.name} onChange={event => setSetup({ ...setup, name: event.target.value })} placeholder="Dein Name"/></label>
@@ -1452,7 +1452,19 @@ function Onboarding({
         </>}
 
         {step === 2 && <>
-          <span className="eyebrow">Schritt 2 von 2</span>
+          <span className="eyebrow">Schritt 2 von 3</span>
+          <h1>Welche Ausbildung machst du?</h1>
+          <p>Damit erkennt die App passende ICT-Module schneller und zeigt sie im Modulbaukasten zuerst.</p>
+          <label className="field">Ausbildung
+            <select value={setup.educationProfileId} onChange={event => setSetup({ ...setup, educationProfileId: event.target.value })}>
+              {ICT_PROFILES.map(profile => <option key={profile.id} value={profile.id}>{profile.title}</option>)}
+            </select>
+          </label>
+          <button className="primary full" onClick={() => setStep(3)}>Weiter</button>
+        </>}
+
+        {step === 3 && <>
+          <span className="eyebrow">Schritt 3 von 3</span>
           <h1>KI verbinden</h1>
           <p>Füge deinen Groq API-Key ein. Du kannst ihn später ändern.</p>
           <label className="field">Groq API-Key<input autoFocus type="password" value={setup.apiKey} onChange={event => setSetup({ ...setup, apiKey: event.target.value })} placeholder="gsk_…"/><small>Der Schlüssel bleibt lokal auf deinem Gerät.</small></label>
