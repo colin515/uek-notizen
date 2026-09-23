@@ -1318,6 +1318,16 @@ export default function App() {
               <button className="icon-button" onClick={() => setAiOpen(false)}><X size={19}/></button>
             </div>
 
+            {!activeAiConnection.apiKey.trim() && (
+              <div className="ai-missing-key">
+                <div><HelpCircle size={16}/><span><strong>{activeAiProvider.keyLabel} fehlt</strong><small>Richte {activeAiProvider.shortLabel} einmal ein, danach funktionieren Chat und Schnellaktionen.</small></span></div>
+                <div>
+                  <button className="secondary" onClick={() => window.open(aiTutorialUrl(data.settings.aiProvider), "_blank", "noopener,noreferrer")}>Anleitung öffnen</button>
+                  <button className="secondary" onClick={() => { setAiOpen(false); setSettingsOpen(true); }}>Key eingeben</button>
+                </div>
+              </div>
+            )}
+
             <div className="ai-quick-heading">Schnellaktionen</div>
             <div className="ai-grid">
               <button onClick={() => void runQuickAi("summary")}>Zusammenfassen</button>
@@ -1620,7 +1630,7 @@ function TutorialOverlay({
       icon: <Sparkles size={30}/>,
       eyebrow: "5 · KI",
       title: "Die KI kann direkt mitarbeiten",
-      text: "Sie kann erklären, zusammenfassen, Texte verbessern sowie ÜKs und Notizen anlegen. Du kannst auch ausdrücklich eine Schnellnotiz erstellen lassen."
+      text: "Wähle GroqCloud, OpenAI oder Google Gemini. Die KI kann erklären, zusammenfassen, Texte verbessern sowie ÜKs und Notizen direkt anlegen."
     }
   ];
 
