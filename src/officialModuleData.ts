@@ -298,6 +298,10 @@ export async function fetchOfficialModuleBundle(
   if (!html) return null;
 
   const parsed = parseOfficialModuleHtml(html, number, fallback);
+  if (!parsed.competence && !parsed.actionGoals.length && !parsed.knowledge.length) {
+    return null;
+  }
+
   const variants = await Promise.all(
     Array.from({ length: 8 }, (_, index) => index + 1).map(async variant => {
       try {
