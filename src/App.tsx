@@ -7,8 +7,12 @@ import { askAi, askAiChat, testAiConnection, type AiAction, type AiChatResult, t
 import { exportCourseDocx } from "./docxExport";
 import { exportCourseTxt } from "./txtExport";
 import { createId, loadData, sampleCourse, sampleNote, saveData } from "./storage";
-import { slashCommands, slashCommandMatches, slashReplacement } from "./editorBlocks";
+import { createEmptyTableHtml, slashCommands, slashCommandMatches, slashReplacement } from "./editorBlocks";
 import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchartHtml, type FlowchartData } from "./FlowchartEditor";
+import TablePicker from "./TablePicker";
+import { highlightAllCodeBlocks, highlightCodeElement, handleCodeTab } from "./codeHighlight";
+import { renderAiBlocks, type AiEditorBlock } from "./aiEditorProtocol";
+import { addTableColumn, addTableRow, deleteTable, removeTableColumn, removeTableRow, startTableResize, tableCellContext, tableResizeCursor, updateTableResize, type TableResizeSession } from "./editorTables";
 import ModuleHub from "./ModuleHub";
 import { ICT_PROFILES, findIctModule, moduleStarterHtml, normalizeModuleNumber, type IctModule } from "./moduleCatalog";
 import { fetchOfficialModuleBundle } from "./officialModuleData";
