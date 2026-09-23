@@ -224,6 +224,7 @@ async fn export_course_txt(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![ai_chat, fetch_official_module_html, fetch_official_lbv_html, export_course_txt])
         .run(tauri::generate_context!())
         .expect("error while running ÜK Notizen");
