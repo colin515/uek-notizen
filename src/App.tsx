@@ -694,7 +694,7 @@ export default function App() {
           const course: Course = {
             id: createId(),
             number: catalogModule ? "M" + catalogModule.number : ((action.number ?? "ÜK").trim() || "ÜK"),
-            title: catalogModule?.title ?? action.title.trim() || "Neuer ÜK",
+            title: catalogModule?.title ?? (action.title.trim() || "Neuer ÜK"),
             createdAt: new Date().toISOString(),
             ...(catalogModule ? {
               catalogModuleNumber: catalogModule.number,
