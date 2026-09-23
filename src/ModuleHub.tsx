@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { BookOpen, Calculator, CheckCircle2, ChevronRight, CircleAlert, FilePlus2, GraduationCap, LibraryBig, Plus, Search, Trash2, X } from "lucide-react";
-import { ICT_PROFILES, NOTE_TEMPLATES, findIctModule, modulesForProfile, normalizeModuleNumber, officialModuleUrl, type IctModule, type ProfileId } from "./moduleCatalog";
+import { ICT_PROFILES, NOTE_TEMPLATES, UEK_PROFILE_PATHS, findIctModule, modulesForProfile, normalizeModuleNumber, officialModuleUrl, type IctModule, type ProfileId } from "./moduleCatalog";
 import { fetchOfficialModuleBundle } from "./officialModuleData";
 import type { AppData, Course, CourseAssessment } from "./types";
 
@@ -252,6 +252,17 @@ export default function ModuleHub({
                   <strong>{ICT_PROFILES.find(profile => profile.id === profileId)?.shortTitle}</strong>
                   <p>{ICT_PROFILES.find(profile => profile.id === profileId)?.description}</p>
                 </div>
+                {UEK_PROFILE_PATHS[profileId as ProfileId] && (
+                  <div className="profile-uek-path">
+                    <strong>{UEK_PROFILE_PATHS[profileId as ProfileId]?.label}</strong>
+                    {UEK_PROFILE_PATHS[profileId as ProfileId]?.years.map(year => (
+                      <div key={year.year}>
+                        <span>{year.year}. Lehrjahr</span>
+                        <div>{year.moduleNumbers.map(number => <b key={number}>M{number}</b>)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="source-note">
                   <BookOpen size={16}/>
                   <p>Die App lädt Kompetenz, Objekt, Handlungsziele, Kenntnisse sowie veröffentlichte LBV-Varianten direkt aus dem öffentlichen ICT-Modulbaukasten und speichert sie im ÜK.</p>
