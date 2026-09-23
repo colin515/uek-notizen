@@ -12,7 +12,7 @@ import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchar
 import TablePicker from "./TablePicker";
 import { highlightAllCodeBlocks, highlightCodeElement, handleCodeTab } from "./codeHighlight";
 import { renderAiBlocks, type AiEditorBlock } from "./aiEditorProtocol";
-import { addTableColumn, addTableRow, deleteTable, removeTableColumn, removeTableRow, startTableResize, tableCellContext, tableResizeCursor, updateTableResize, type TableResizeSession } from "./editorTables";
+import { addTableColumn, addTableRow, deleteTable, distributeTableColumns, moveTableColumn, moveTableRow, removeTableColumn, removeTableRow, startTableResize, tableCellContext, tableResizeCursor, updateTableResize, type TableResizeSession } from "./editorTables";
 import ModuleHub from "./ModuleHub";
 import { ICT_PROFILES, findIctModule, moduleStarterHtml, normalizeModuleNumber, type IctModule } from "./moduleCatalog";
 import { fetchOfficialModuleBundle } from "./officialModuleData";
@@ -359,6 +359,7 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
+  const [slashPosition, setSlashPosition] = useState({ x: 24, y: 120 });
   const [tablePickerOpen, setTablePickerOpen] = useState(false);
   const [tableContext, setTableContext] = useState<{
     table: HTMLTableElement;
@@ -853,7 +854,7 @@ export default function App() {
     }
   };
 
-  const buildAiContext = () => {
+  const buildAiContext = (selectedTextOverride?: string) => {
     const currentCourse = selectedCourse
       ? "Aktueller ÜK: " + selectedCourse.number + " · " + selectedCourse.title
       : selected?.courseId === null
@@ -889,7 +890,7 @@ export default function App() {
     return {
       currentCourse,
       currentNote,
-      selectedText: selectionTextForAi || selectionAi?.text || undefined,
+      selectedText: selectedTextOverride || selectionTextForAi || selectionAi?.text || undefined,
       courses,
       notes
     };
@@ -1340,9 +1341,21 @@ export default function App() {
       return;
     }
 
-    const next = editorRef.current ? getSlashQuery(editorRef.current) : null;
+    const editor = editorRef.current;
+    const next = editor ? getSlashQuery(editor) : null;
     setSlashQuery(next);
     setSlashIndex(0);
+
+    if (next !== null && editor) {
+      const range = currentSelectionRange(editor);
+      const rect = range?.getBoundingClientRect();
+      if (rect) {
+        setSlashPosition({
+          x: Math.min(window.innerWidth - 390, Math.max(12, rect.left)),
+          y: Math.min(window.innerHeight - 430, Math.max(12, rect.bottom + 8))
+        });
+      }
+    }
   };
 
   const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -1461,6 +1474,28 @@ export default function App() {
     setAiOpen(true);
     setChatInput("");
     setSelectionAi(null);
+  };
+
+  const runSelectionAiCommand = async (prompt: string) => {
+    if (!selectionAi || aiLoading) return;
+    const selectedText = selectionAi.text;
+    setSelectionTextForAi(selectedText);
+    setSelectionAi(null);
+    setAiOpen(true);
+    setAiLoading(true);
+    setChatMessages(messages => [...messages, { role: "user", content: prompt + " · Auswahl: „" + selectedText.slice(0, 120) + (selectedText.length > 120 ? "…" : "") + "“" }]);
+
+    try {
+      const result = await askAiChat(activeAiConnection, prompt, buildAiContext(selectedText));
+      const reply = applyAiActions(result);
+      setChatMessages(messages => [...messages, { role: "assistant", content: reply }]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setChatMessages(messages => [...messages, { role: "assistant", content: message }]);
+      setToast(message);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const improveSelectionDirectly = async () => {
@@ -1698,7 +1733,7 @@ export default function App() {
             </div>
 
             {slashQuery !== null && (
-              <div className="slash-menu">
+              <div className="slash-menu" style={{ left: slashPosition.x, top: slashPosition.y }}>
                 <div className="slash-title">
                   <span>/ Schnellbefehle</span>
                   <small>↑↓ wählen · Enter einfügen</small>
@@ -1734,7 +1769,10 @@ export default function App() {
                 onMouseDown={event => event.preventDefault()}
               >
                 <button onClick={openAiForSelection}><Sparkles size={14}/> KI fragen</button>
+                <button onClick={() => void runSelectionAiCommand("Erkläre den ausgewählten Text kurz und einfach. Ändere nichts in der Notiz.")}>Erklären</button>
                 <button onClick={() => void improveSelectionDirectly()}>Verbessern</button>
+                <button onClick={() => void runSelectionAiCommand("Wandle den ausgewählten Text in eine übersichtliche Tabelle um und ersetze die Auswahl mit einem table-Block.")}>Tabelle</button>
+                <button onClick={() => void runSelectionAiCommand("Erstelle aus dem ausgewählten Ablauf ein Flowchart und ersetze die Auswahl mit einem flowchart-Block.")}>Flowchart</button>
               </div>
             )}
 
@@ -1745,12 +1783,33 @@ export default function App() {
                 onMouseDown={event => event.preventDefault()}
               >
                 <span>Tabelle</span>
+                <button title="Zeile nach oben" onClick={() => {
+                  const rowIndex = moveTableRow(tableContext.table, tableContext.rowIndex, -1);
+                  setTableContext(current => current ? { ...current, rowIndex } : current);
+                  commitTableChange();
+                }}>↑ Zeile</button>
+                <button title="Zeile nach unten" onClick={() => {
+                  const rowIndex = moveTableRow(tableContext.table, tableContext.rowIndex, 1);
+                  setTableContext(current => current ? { ...current, rowIndex } : current);
+                  commitTableChange();
+                }}>↓ Zeile</button>
+                <button title="Spalte nach links" onClick={() => {
+                  const columnIndex = moveTableColumn(tableContext.table, tableContext.columnIndex, -1);
+                  setTableContext(current => current ? { ...current, columnIndex } : current);
+                  commitTableChange();
+                }}>← Spalte</button>
+                <button title="Spalte nach rechts" onClick={() => {
+                  const columnIndex = moveTableColumn(tableContext.table, tableContext.columnIndex, 1);
+                  setTableContext(current => current ? { ...current, columnIndex } : current);
+                  commitTableChange();
+                }}>→ Spalte</button>
                 <button onClick={() => { addTableRow(tableContext.table, tableContext.rowIndex); commitTableChange(); }}>+ Zeile</button>
                 <button onClick={() => { addTableColumn(tableContext.table, tableContext.columnIndex); commitTableChange(); }}>+ Spalte</button>
+                <button onClick={() => { distributeTableColumns(tableContext.table); commitTableChange(); }}>↔ Gleich breit</button>
                 <button onClick={() => { removeTableRow(tableContext.table, tableContext.rowIndex); commitTableChange(); }}>− Zeile</button>
                 <button onClick={() => { removeTableColumn(tableContext.table, tableContext.columnIndex); commitTableChange(); }}>− Spalte</button>
                 <button className="danger" onClick={() => { deleteTable(tableContext.table); setTableContext(null); commitTableChange(); }}>Löschen</button>
-                <small>Kanten ziehen = Grösse ändern</small>
+                <small>Kanten ziehen = Breite/Höhe ändern</small>
               </div>
             )}
 
