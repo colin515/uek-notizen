@@ -1366,20 +1366,26 @@ function TutorialOverlay({
       text: "Erstelle links einen ÜK und darin beliebig viele Notizen. Am Ende exportierst du den ganzen ÜK als Word-Dokument."
     },
     {
+      icon: <GraduationCap size={30}/>,
+      eyebrow: "2 · Modulbaukasten",
+      title: "Modulnummer eingeben – fertig",
+      text: "Wähle deine Ausbildung und gib zum Beispiel 294 ein. Die App erkennt bekannte ICT-Module, erstellt einen passenden Überblick und bietet unter „Module & Noten“ Prüfungen, Gewichtungen und Noten."
+    },
+    {
       icon: <Zap size={30}/>,
-      eyebrow: "2 · Schnellnotizen",
+      eyebrow: "3 · Schnellnotizen",
       title: "Nicht alles braucht einen ÜK",
       text: "Mit Schnellnotizen hältst du spontane Gedanken, Aufgaben oder Infos fest. Später kannst du sie über die Auswahl oben einem ÜK zuordnen."
     },
     {
       icon: <Workflow size={30}/>,
-      eyebrow: "3 · Slash-Menü",
+      eyebrow: "4 · Slash-Menü",
       title: "Tippe / im Editor",
       text: "Mit / fügst du Tabellen, Checklisten, Infoboxen, Code, Spalten, Bilder und Flowcharts ein. Flowcharts lassen sich per Drag & Drop bearbeiten und verbinden."
     },
     {
       icon: <Sparkles size={30}/>,
-      eyebrow: "4 · KI",
+      eyebrow: "5 · KI",
       title: "Die KI kann direkt mitarbeiten",
       text: "Sie kann erklären, zusammenfassen, Texte verbessern sowie ÜKs und Notizen anlegen. Du kannst auch ausdrücklich eine Schnellnotiz erstellen lassen."
     }
