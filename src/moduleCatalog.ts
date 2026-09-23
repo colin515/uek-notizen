@@ -1,3 +1,4 @@
+import type { CourseAssessmentVariant } from "./types";
 export type ProfileId =
   | "informatik-ae"
   | "informatik-pe"
@@ -26,6 +27,13 @@ export interface IctModule {
   topics: string[];
   version?: string;
   sourceNote?: string;
+  competence?: string;
+  object?: string;
+  actionGoals?: string[];
+  knowledge?: string[];
+  degrees?: string[];
+  sourceUrl?: string;
+  assessmentVariants?: CourseAssessmentVariant[];
 }
 
 export const ICT_PROFILES: IctProfile[] = [
@@ -266,15 +274,49 @@ export function officialModuleUrl(module: IctModule): string {
   return "https://www.modulbaukasten.ch/module/" + encodeURIComponent(module.number);
 }
 
+function htmlEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export function moduleStarterHtml(module: IctModule): string {
-  const topics = module.topics.map(topic => "<li>" + topic + "</li>").join("");
+  const list = (values: string[]) => "<ul>" + values.map(value => "<li>" + htmlEscape(value) + "</li>").join("") + "</ul>";
+  const goals = module.actionGoals?.length
+    ? "<ol>" + module.actionGoals.map(goal => "<li>" + htmlEscape(goal) + "</li>").join("") + "</ol>"
+    : list(module.topics);
+
+  const knowledge = module.knowledge?.length
+    ? list(module.knowledge)
+    : list(module.topics);
+
+  const variants = module.assessmentVariants ?? [];
+  const lbv = variants.length
+    ? variants.map(variant => {
+        const rows = variant.assessments.map(assessment =>
+          "<tr><td><strong>" + htmlEscape(assessment.title) + "</strong></td>" +
+          "<td>" + htmlEscape(assessment.topic || "Offizielles Prüfungselement") + "</td>" +
+          "<td>" + assessment.weight + "%</td>" +
+          "<td>" + htmlEscape([assessment.format, assessment.duration].filter(Boolean).join(" · ")) + "</td></tr>"
+        ).join("");
+        return "<h3>" + htmlEscape(variant.title) + "</h3>" +
+          (variant.description ? "<p>" + htmlEscape(variant.description) + "</p>" : "") +
+          (variant.totalDuration ? "<p><strong>Richtzeit:</strong> " + htmlEscape(variant.totalDuration) + "</p>" : "") +
+          "<table class=\"note-table\"><thead><tr><th>Leistungsnachweis</th><th>Inhalt</th><th>Gewichtung</th><th>Form / Zeit</th></tr></thead><tbody>" + rows + "</tbody></table>";
+      }).join("")
+    : "<p>Für dieses Modul wurde über die öffentliche Modulbaukasten-Quelle keine LBV geladen.</p>";
+
   return [
-    "<div class=\"callout-block\"><strong>Modul " + module.number + " · " + module.title + "</strong><p>" + (module.summary || "Offizielles ICT-Modul. Nutze diese Notiz als Startpunkt und ergänze die Inhalte aus deinem ÜK.") + "</p></div>",
-    "<h2>Orientierung</h2>",
-    "<ul>" + topics + "</ul>",
-    "<h2>Lernziele & wichtige Begriffe</h2><p></p>",
-    "<h2>Praxis / Übungen</h2><p></p>",
-    "<h2>Prüfungsvorbereitung</h2><ul><li>Was muss ich sicher erklären können?</li><li>Was muss ich praktisch umsetzen können?</li><li>Welche Fehler muss ich erkennen und beheben können?</li></ul>"
+    "<div class=\"callout-block\"><strong>Modul " + htmlEscape(module.number) + " · " + htmlEscape(module.title) + "</strong><p>" + htmlEscape(module.competence || module.summary || "Offizielles ICT-Modul") + "</p></div>",
+    "<h2>Kompetenz</h2><p>" + htmlEscape(module.competence || module.summary || "") + "</p>",
+    module.object ? "<h2>Objekt</h2><p>" + htmlEscape(module.object) + "</p>" : "",
+    "<h2>Handlungsziele</h2>" + goals,
+    "<h2>Handlungsnotwendige Kenntnisse</h2>" + knowledge,
+    "<h2>Leistungsbeurteilung (LBV)</h2>" + lbv,
+    module.degrees?.length ? "<h2>Abschlüsse / Zuordnung</h2>" + list(module.degrees) : "",
+    module.sourceUrl ? "<p><strong>Quelle:</strong> " + htmlEscape(module.sourceUrl) + "</p>" : ""
   ].join("");
 }
 
