@@ -12,7 +12,7 @@ Eine ruhige, Notion-inspirierte Desktop-App für Schweizer ÜK-Lernende.
 - Interaktiver Flowchart-Editor mit Drag & Drop und Verbindungen
 - Formatierter Editor und DOCX-Export
 - Optionaler Groq-KI-Assistent: Zusammenfassen, Erklären, Verbessern, Lernfragen sowie ÜKs und Notizen direkt erstellen
-- Heller und dunkler Modus mit kurzen Onboarding-Tutorial
+- Heller und dunkler Modus mit kurzem Onboarding-Tutorial
 - Windows- und macOS-Builds über GitHub Actions
 - Download-Seite über GitHub Pages
 
