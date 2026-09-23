@@ -280,7 +280,12 @@ function StableEditor({
   onKeyDown,
   onInput,
   onPaste,
-  onDoubleClick
+  onDoubleClick,
+  onPointerMove,
+  onPointerDown,
+  onClick,
+  onMouseUp,
+  onKeyUp
 }: {
   note: Note;
   editorRef: React.RefObject<HTMLDivElement | null>;
@@ -290,9 +295,16 @@ function StableEditor({
   onInput: (event: React.FormEvent<HTMLDivElement>) => void;
   onPaste: (event: React.ClipboardEvent<HTMLDivElement>) => void;
   onDoubleClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onMouseUp: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onKeyUp: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }) {
   useEffect(() => {
-    if (editorRef.current) editorRef.current.innerHTML = note.content;
+    if (!editorRef.current) return;
+    editorRef.current.innerHTML = note.content;
+    highlightAllCodeBlocks(editorRef.current);
   }, [note.id, syncVersion, editorRef]);
 
   return (
@@ -303,12 +315,17 @@ function StableEditor({
       suppressContentEditableWarning
       spellCheck
       onInput={event => {
-        onChange(event.currentTarget.innerHTML);
         onInput(event);
+        onChange(event.currentTarget.innerHTML);
       }}
       onKeyDown={onKeyDown}
       onPaste={onPaste}
       onDoubleClick={onDoubleClick}
+      onPointerMove={onPointerMove}
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+      onMouseUp={onMouseUp}
+      onKeyUp={onKeyUp}
     />
   );
 }
