@@ -1671,7 +1671,7 @@ export default function App() {
               <button title="Bild einfügen" onClick={insertImage}><ImagePlus size={16}/></button>
               <button title="Checkliste" onClick={() => {
                 editorRef.current?.focus();
-                document.execCommand("insertHTML", false, "<p>☐ Aufgabe</p><p></p>");
+                document.execCommand("insertHTML", false, '<div class="checklist-block"><p>☐&nbsp;</p></div><p><br></p>');
                 patchNote({ content: editorRef.current?.innerHTML ?? "" });
               }}><ListChecks size={16}/></button>
 
@@ -1684,20 +1684,58 @@ export default function App() {
 
             {slashQuery !== null && (
               <div className="slash-menu">
-                <div className="slash-title">/ Schnellbefehle</div>
-                {slashCommands
-                  .filter(command => slashCommandMatches(command, slashQuery))
-                  .map(command => (
-                    <button
-                      key={command.query}
-                      onMouseDown={event => {
-                        event.preventDefault();
-                        runSlashCommand(command.query);
-                      }}
-                    >
-                      <strong>/{command.query}</strong><span>{command.category} · {command.hint}</span>
-                    </button>
-                  ))}
+                <div className="slash-title">
+                  <span>/ Schnellbefehle</span>
+                  <small>↑↓ wählen · Enter einfügen</small>
+                </div>
+                {slashMatches.map((command, index) => (
+                  <button
+                    key={command.query}
+                    className={index === slashIndex ? "active" : ""}
+                    onMouseEnter={() => setSlashIndex(index)}
+                    onMouseDown={event => {
+                      event.preventDefault();
+                      runSlashCommand(command.query);
+                    }}
+                  >
+                    <strong>/{command.query}</strong><span>{command.category} · {command.hint}</span>
+                  </button>
+                ))}
+                {!slashMatches.length && <div className="slash-empty">Kein passender Block</div>}
+              </div>
+            )}
+
+            {tablePickerOpen && (
+              <TablePicker
+                onSelect={insertPickedTable}
+                onCancel={() => setTablePickerOpen(false)}
+              />
+            )}
+
+            {selectionAi && (
+              <div
+                className="selection-ai-toolbar"
+                style={{ left: selectionAi.x, top: selectionAi.y }}
+                onMouseDown={event => event.preventDefault()}
+              >
+                <button onClick={openAiForSelection}><Sparkles size={14}/> KI fragen</button>
+                <button onClick={() => void improveSelectionDirectly()}>Verbessern</button>
+              </div>
+            )}
+
+            {tableContext && (
+              <div
+                className="table-context-toolbar"
+                style={{ left: tableContext.x, top: tableContext.y }}
+                onMouseDown={event => event.preventDefault()}
+              >
+                <span>Tabelle</span>
+                <button onClick={() => { addTableRow(tableContext.table, tableContext.rowIndex); commitTableChange(); }}>+ Zeile</button>
+                <button onClick={() => { addTableColumn(tableContext.table, tableContext.columnIndex); commitTableChange(); }}>+ Spalte</button>
+                <button onClick={() => { removeTableRow(tableContext.table, tableContext.rowIndex); commitTableChange(); }}>− Zeile</button>
+                <button onClick={() => { removeTableColumn(tableContext.table, tableContext.columnIndex); commitTableChange(); }}>− Spalte</button>
+                <button className="danger" onClick={() => { deleteTable(tableContext.table); setTableContext(null); commitTableChange(); }}>Löschen</button>
+                <small>Kanten ziehen = Grösse ändern</small>
               </div>
             )}
 
@@ -1706,10 +1744,15 @@ export default function App() {
               editorRef={editorRef}
               syncVersion={editorSyncVersion}
               onChange={html => patchNote({ content: html })}
-              onInput={updateSlashMenu}
+              onInput={handleEditorInput}
               onKeyDown={handleEditorKeyDown}
               onPaste={handleEditorPaste}
               onDoubleClick={handleEditorDoubleClick}
+              onPointerMove={handleEditorPointerMove}
+              onPointerDown={handleEditorPointerDown}
+              onClick={handleEditorClick}
+              onMouseUp={updateSelectionAi}
+              onKeyUp={updateSelectionAi}
             />
             <input ref={imageInputRef} className="hidden-input" type="file" accept="image/*" onChange={handleImageSelected}/>
           </section>
@@ -1717,12 +1760,24 @@ export default function App() {
       </main>
 
       {aiOpen && (
-        <div className="drawer-backdrop" onMouseDown={event => event.target === event.currentTarget && setAiOpen(false)}>
+        <div className="drawer-backdrop" onMouseDown={event => {
+          if (event.target !== event.currentTarget) return;
+          setAiOpen(false);
+          setSelectionTextForAi("");
+        }}>
           <aside className="ai-drawer">
             <div className="drawer-header">
               <div><Bot size={20}/><strong>KI-Assistent · {activeAiProvider.shortLabel}</strong></div>
-              <button className="icon-button" onClick={() => setAiOpen(false)}><X size={19}/></button>
+              <button className="icon-button" onClick={() => { setAiOpen(false); setSelectionTextForAi(""); }}><X size={19}/></button>
             </div>
+
+            {selectionTextForAi && (
+              <div className="ai-selection-context">
+                <div><Sparkles size={14}/><strong>Ausgewählter Text</strong></div>
+                <p>{selectionTextForAi.slice(0, 360)}{selectionTextForAi.length > 360 ? "…" : ""}</p>
+                <button onClick={() => setSelectionTextForAi("")}>Auswahl lösen</button>
+              </div>
+            )}
 
             {!activeAiConnection.apiKey.trim() && (
               <div className="ai-missing-key">
@@ -1771,13 +1826,13 @@ export default function App() {
                     void sendAiChat();
                   }
                 }}
-                placeholder="z. B. „Erstelle eine Notiz über USB-C, HDMI und DisplayPort“"
+                placeholder={selectionTextForAi ? "Frag die KI etwas zu deiner Auswahl…" : "z. B. „Erstelle 4 Notizen mit Tabelle und Flowchart für M294“"}
               />
               <button className="primary" onClick={() => void sendAiChat()} disabled={aiLoading || !chatInput.trim()}><Sparkles size={16}/> Senden</button>
             </div>
 
             <div className="ai-chat-hint">
-              Beispiele: „Erstelle einen neuen ÜK“, „Mach eine Notiz über USB-C und HDMI“ oder „Verbessere den Text und ersetze ihn direkt“.
+              Beispiele: „Erstelle M294 mit fünf Lernnotizen“, „Vergleiche REST und GraphQL in einer Tabelle“, „Erstelle einen Flowchart zum Login-Ablauf“ oder markiere Text und frage die KI direkt.
             </div>
           </aside>
         </div>
