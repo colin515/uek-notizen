@@ -5,7 +5,7 @@ export type AiAction = "summary" | "explain" | "improve" | "quiz";
 
 export type AiChatAction =
   | { type: "create_course"; number?: string; title: string }
-  | { type: "create_note"; courseId?: string; title: string; content: string; tags?: string[] }
+  | { type: "create_note"; courseId?: string | null; title: string; content: string; tags?: string[] }
   | { type: "replace_note"; noteId?: string; title?: string; content: string }
   | { type: "update_note"; noteId?: string; title?: string; content?: string };
 
@@ -94,7 +94,7 @@ export async function askGroq(apiKey: string, action: AiAction, html: string): P
   const text = new DOMParser().parseFromString(html, "text/html").body.textContent?.trim() ?? "";
   if (!text) throw new Error("Die Notiz ist leer. Schreibe zuerst etwas Inhalt in deine Notiz.");
 
-  const systemPrompt = "Du bist ein hilfreicher Lernassistent für Schweizer ÜK-Lernende. Antworte präzise und ohne erfundene Fakten.";
+  const systemPrompt = "Du bist ein präziser Lernassistent für Schweizer ÜK-Lernende. Antworte auf Deutsch, strukturiert, knapp und fachlich korrekt. Erfinde keine Fakten und behalte wichtige technische Details bei.";
   return callAi(apiKey, systemPrompt, prompts[action] + "\n\n" + text);
 }
 
@@ -133,7 +133,7 @@ export async function askGroqChat(
     currentCourse: string;
     currentNote: string;
     courses: Array<{ id: string; number: string; title: string }>;
-    notes: Array<{ id: string; courseId: string; title: string; content: string }>;
+    notes: Array<{ id: string; courseId: string | null; title: string; content: string }>;
   }
 ): Promise<AiChatResult> {
   const systemPrompt = [
@@ -148,16 +148,19 @@ export async function askGroqChat(
     '{ "type": "create_course", "number": "ÜK 123", "title": "Titel" }',
     '{ "type": "create_note", "courseId": "current", "title": "Titel", "content": "Notiztext", "tags": ["tag1"] }',
     '{ "type": "create_note", "courseId": "newest_created", "title": "Titel", "content": "Notiztext", "tags": [] }',
+    '{ "type": "create_note", "courseId": "quick", "title": "Titel", "content": "Notiztext", "tags": [] }',
     '{ "type": "replace_note", "noteId": "aktuelle-id", "content": "neuer kompletter Text", "title": "optional" }',
     '{ "type": "update_note", "noteId": "aktuelle-id", "title": "optional", "content": "optional" }',
     "",
     "Für create_course: Wenn die Person keine Nummer nennt, darfst du ÜK als Nummer verwenden und einen passenden Titel wählen.",
     "Für create_note: Wenn ein aktueller ÜK existiert und kein anderer genannt wird, verwende courseId current.",
+    "Wenn ausdrücklich eine Schnellnotiz, spontane Notiz oder Notiz ohne ÜK verlangt wird, verwende courseId quick.",
     "Wenn du zuerst einen ÜK erstellst und danach darin eine Notiz erstellst, verwende für die Notiz courseId newest_created.",
     "Für replace_note muss content immer der komplette Ersatztext sein, nicht nur Änderungen.",
     "Für create_note, replace_note und update_note: content ist reiner, sauberer Notiztext für den Editor. KEIN Markdown. Keine **Fettschrift**, keine *Kursivschrift*, keine # Überschriften, keine Codeblöcke und keine Markdown-Trennlinien.",
     "Nutze normale Absätze. Für Stichpunkte verwende Zeilen mit '- '. Für nummerierte Schritte verwende '1. ', '2. ', '3. ' usw.",
     "Keine Backslashes vor Satzzeichen. Keine Einleitung oder Erklärung ausserhalb des eigentlichen Notiztexts.",
+    "Antworte im Chat kurz. Führe passende Aktionen aus, statt lange zu erklären, was du tun könntest.",
     "Bei Notizen nur klare, lernfreundliche Inhalte. Keine erfundenen Quellen oder Fakten.",
     "",
     "Aktueller Kontext:",
