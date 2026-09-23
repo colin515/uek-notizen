@@ -7,8 +7,12 @@ import { askAi, askAiChat, testAiConnection, type AiAction, type AiChatResult, t
 import { exportCourseDocx } from "./docxExport";
 import { exportCourseTxt } from "./txtExport";
 import { createId, loadData, sampleCourse, sampleNote, saveData } from "./storage";
-import { slashCommands, slashCommandMatches, slashReplacement } from "./editorBlocks";
+import { createEmptyTableHtml, slashCommands, slashCommandMatches, slashReplacement } from "./editorBlocks";
 import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchartHtml, type FlowchartData } from "./FlowchartEditor";
+import TablePicker from "./TablePicker";
+import { highlightAllCodeBlocks, highlightCodeElement, handleCodeTab } from "./codeHighlight";
+import { renderAiBlocks, type AiEditorBlock } from "./aiEditorProtocol";
+import { addTableColumn, addTableRow, deleteTable, removeTableColumn, removeTableRow, startTableResize, tableCellContext, tableResizeCursor, updateTableResize, type TableResizeSession } from "./editorTables";
 import ModuleHub from "./ModuleHub";
 import { ICT_PROFILES, findIctModule, moduleStarterHtml, normalizeModuleNumber, type IctModule } from "./moduleCatalog";
 import { fetchOfficialModuleBundle } from "./officialModuleData";
@@ -276,7 +280,12 @@ function StableEditor({
   onKeyDown,
   onInput,
   onPaste,
-  onDoubleClick
+  onDoubleClick,
+  onPointerMove,
+  onPointerDown,
+  onClick,
+  onMouseUp,
+  onKeyUp
 }: {
   note: Note;
   editorRef: React.RefObject<HTMLDivElement | null>;
@@ -286,9 +295,16 @@ function StableEditor({
   onInput: (event: React.FormEvent<HTMLDivElement>) => void;
   onPaste: (event: React.ClipboardEvent<HTMLDivElement>) => void;
   onDoubleClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onMouseUp: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onKeyUp: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }) {
   useEffect(() => {
-    if (editorRef.current) editorRef.current.innerHTML = note.content;
+    if (!editorRef.current) return;
+    editorRef.current.innerHTML = note.content;
+    highlightAllCodeBlocks(editorRef.current);
   }, [note.id, syncVersion, editorRef]);
 
   return (
@@ -299,12 +315,17 @@ function StableEditor({
       suppressContentEditableWarning
       spellCheck
       onInput={event => {
-        onChange(event.currentTarget.innerHTML);
         onInput(event);
+        onChange(event.currentTarget.innerHTML);
       }}
       onKeyDown={onKeyDown}
       onPaste={onPaste}
       onDoubleClick={onDoubleClick}
+      onPointerMove={onPointerMove}
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+      onMouseUp={onMouseUp}
+      onKeyUp={onKeyUp}
     />
   );
 }
@@ -337,6 +358,17 @@ export default function App() {
   });
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [tablePickerOpen, setTablePickerOpen] = useState(false);
+  const [tableContext, setTableContext] = useState<{
+    table: HTMLTableElement;
+    rowIndex: number;
+    columnIndex: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [selectionAi, setSelectionAi] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [selectionTextForAi, setSelectionTextForAi] = useState("");
   const [editorSyncVersion, setEditorSyncVersion] = useState(0);
   const [selectedChatAction, setSelectedChatAction] = useState<AiAction | null>(null);
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -346,6 +378,8 @@ export default function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+  const aiSelectionRangeRef = useRef<Range | null>(null);
+  const tableResizeRef = useRef<TableResizeSession | null>(null);
   const moduleEnrichmentRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -396,38 +430,53 @@ export default function App() {
           const firstVariant = variants[0];
           const content = moduleStarterHtml(official);
 
-          setData(current => ({
-            ...current,
-            courses: current.courses.map(item => item.id === course.id
-              ? {
-                  ...item,
-                  number: "M" + official.number,
-                  title: official.title,
-                  catalogModuleNumber: official.number,
-                  moduleField: official.field,
-                  moduleTopics: official.topics,
-                  moduleSummary: official.summary,
-                  moduleCompetence: official.competence,
-                  moduleObject: official.object,
-                  moduleActionGoals: official.actionGoals,
-                  moduleKnowledge: official.knowledge,
-                  moduleDegrees: official.degrees,
-                  officialSourceUrl: official.sourceUrl,
-                  officialDataLoadedAt: new Date().toISOString(),
-                  assessmentVariants: variants,
-                  assessmentVariantId: item.assessmentVariantId ?? firstVariant?.id,
-                  assessments: item.assessments?.some(assessment => assessment.grade !== null)
-                    ? item.assessments
-                    : firstVariant?.assessments.map(assessment => ({ ...assessment, grade: null })) ?? []
-                }
-              : item),
-            notes: current.notes.map(note =>
+          setData(current => {
+            const existingOverview = current.notes.find(note =>
+              note.courseId === course.id &&
+              /^Modul\s+.+\s+·\s+(Überblick|Komplettübersicht)$/.test(note.title)
+            );
+            const overview = existingOverview
+              ? null
+              : createNote(course.id, "Modul " + official.number + " · Komplettübersicht", content);
+
+            const notes = current.notes.map(note =>
               note.courseId === course.id &&
               /^Modul\s+.+\s+·\s+(Überblick|Komplettübersicht)$/.test(note.title)
                 ? { ...note, title: "Modul " + official.number + " · Komplettübersicht", content, updatedAt: new Date().toISOString() }
                 : note
-            )
-          }));
+            );
+
+            return {
+              ...current,
+              courses: current.courses.map(item => item.id === course.id
+                ? {
+                    ...item,
+                    number: "M" + official.number,
+                    title: official.title,
+                    catalogModuleNumber: official.number,
+                    moduleField: official.field,
+                    moduleTopics: official.topics,
+                    moduleSummary: official.summary,
+                    moduleCompetence: official.competence,
+                    moduleObject: official.object,
+                    moduleActionGoals: official.actionGoals,
+                    moduleKnowledge: official.knowledge,
+                    moduleDegrees: official.degrees,
+                    officialSourceUrl: official.sourceUrl,
+                    officialDataLoadedAt: new Date().toISOString(),
+                    assessmentVariants: variants,
+                    assessmentVariantId: item.assessmentVariantId ?? firstVariant?.id,
+                    assessments: item.assessments?.some(assessment => assessment.grade !== null)
+                      ? item.assessments
+                      : firstVariant?.assessments.map(assessment => ({ ...assessment, grade: null })) ?? []
+                  }
+                : item),
+              notes: overview ? [overview, ...notes] : notes,
+              selectedNoteId: overview && current.selectedCourseId === course.id && !current.selectedNoteId
+                ? overview.id
+                : current.selectedNoteId
+            };
+          });
         })
         .catch(() => {
           // Existing local data stays intact. The app can try again after a restart.
@@ -445,6 +494,9 @@ export default function App() {
     model: data.settings.aiModel,
     apiKey: data.settings.aiKeys[data.settings.aiProvider] ?? ""
   };
+  const slashMatches = slashQuery === null
+    ? []
+    : slashCommands.filter(command => slashCommandMatches(command, slashQuery));
 
   const courseLabel = (courseId: string | null) => {
     if (!courseId) return "Schnellnotiz";
@@ -809,32 +861,75 @@ export default function App() {
         : "Kein ÜK ausgewählt";
 
     const currentNote = selected
-      ? "Aktuelle Notiz: " + selected.title + "\n" + stripHtml(selected.content).slice(0, 7000)
+      ? "Aktuelle Notiz: " + selected.title + "\n" + stripHtml(selected.content).slice(0, 9000)
       : "Keine Notiz ausgewählt";
 
     const courses = data.courses.map(course => ({
       id: course.id,
       number: course.number,
-      title: course.title
+      title: course.title,
+      assessments: (course.assessments ?? []).map(assessment => ({
+        id: assessment.id,
+        title: assessment.title,
+        weight: assessment.weight,
+        grade: assessment.grade
+      }))
     }));
 
     const notes = data.notes
       .filter(note => !note.archived)
-      .slice(0, 18)
+      .slice(0, 28)
       .map(note => ({
         id: note.id,
         courseId: note.courseId,
         title: note.title,
-        content: stripHtml(note.content).slice(0, 700)
+        content: stripHtml(note.content).slice(0, 900)
       }));
 
-    return { currentCourse, currentNote, courses, notes };
+    return {
+      currentCourse,
+      currentNote,
+      selectedText: selectionTextForAi || selectionAi?.text || undefined,
+      courses,
+      notes
+    };
   };
 
   const applyAiActions = (result: AiChatResult): string => {
     let createdCourseId: string | null = null;
     let createdNoteId: string | null = null;
     let changedCurrentNote = false;
+    let gradeChanged = false;
+    let selectionEditedHtml: string | null = null;
+
+    const selectionActions = result.actions.filter(action =>
+      action.type === "replace_selection" || action.type === "insert_blocks_at_selection"
+    );
+
+    if (selectionActions.length && editorRef.current && aiSelectionRangeRef.current) {
+      const editor = editorRef.current;
+      try {
+        editor.focus();
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(aiSelectionRangeRef.current);
+
+        for (const action of selectionActions) {
+          if (action.type === "replace_selection") {
+            document.execCommand("insertText", false, action.content);
+          } else if (action.type === "insert_blocks_at_selection") {
+            document.execCommand("insertHTML", false, renderAiBlocks(action.blocks));
+          }
+        }
+
+        highlightAllCodeBlocks(editor);
+        selectionEditedHtml = editor.innerHTML;
+        setSelectionAi(null);
+        setSelectionTextForAi("");
+      } catch {
+        selectionEditedHtml = null;
+      }
+    }
 
     setData(current => {
       let courses = [...current.courses];
@@ -842,13 +937,36 @@ export default function App() {
       let selectedCourseId = current.selectedCourseId;
       let selectedNoteId = current.selectedNoteId;
 
+      const resolveCourseId = (value?: string | null): string | null | undefined => {
+        if (value === null || value === "quick") return null;
+        if (!value || value === "current") return selectedCourseId ?? createdCourseId ?? undefined;
+        if (value === "newest_created") return createdCourseId ?? selectedCourseId ?? undefined;
+        return value;
+      };
+
+      const resolveNoteId = (value?: string): string | null =>
+        value || selectedNoteId || current.selectedNoteId;
+
       for (const action of result.actions) {
+        if (action.type === "replace_selection" || action.type === "insert_blocks_at_selection") continue;
+
         if (action.type === "create_course") {
           const rawNumber = action.number ?? "";
           const normalizedNumber = normalizeModuleNumber(rawNumber);
           const hasOfficialNumber = /^\d{2,4}[A-Z]?$/.test(normalizedNumber);
           const catalogModule = findIctModule(normalizedNumber, current.settings.educationProfileId);
           const officialNumber = catalogModule?.number ?? (hasOfficialNumber ? normalizedNumber : "");
+
+          const duplicate = officialNumber
+            ? courses.find(course => normalizeModuleNumber(course.number) === officialNumber)
+            : null;
+
+          if (duplicate) {
+            createdCourseId = duplicate.id;
+            selectedCourseId = duplicate.id;
+            continue;
+          }
+
           const course: Course = {
             id: createId(),
             number: officialNumber ? "M" + officialNumber : (rawNumber.trim() || "ÜK"),
@@ -867,18 +985,37 @@ export default function App() {
           createdCourseId = course.id;
           selectedCourseId = course.id;
           selectedNoteId = null;
+          continue;
         }
 
-        if (action.type === "create_note") {
-          let courseId = action.courseId;
-          if (courseId === "quick") courseId = null;
-          else if (!courseId || courseId === "current") courseId = selectedCourseId ?? undefined;
-          else if (courseId === "newest_created") courseId = createdCourseId ?? selectedCourseId ?? undefined;
-          if (courseId === undefined) courseId = createdCourseId ?? selectedCourseId ?? undefined;
+        if (action.type === "rename_course") {
+          const courseId = resolveCourseId(action.courseId);
+          if (!courseId) continue;
+          courses = courses.map(course => course.id === courseId
+            ? {
+                ...course,
+                ...(action.number?.trim() ? { number: action.number.trim() } : {}),
+                ...(action.title?.trim() ? { title: action.title.trim() } : {})
+              }
+            : course
+          );
+          continue;
+        }
+
+        if (action.type === "create_note" || action.type === "create_rich_note") {
+          const courseId = resolveCourseId(action.courseId);
           if (courseId === undefined) continue;
 
+          const html = action.type === "create_rich_note"
+            ? renderAiBlocks(action.blocks)
+            : plainTextToHtml(action.content);
+
           const note: Note = {
-            ...createNote(courseId, action.title.trim() || (courseId === null ? "Schnellnotiz" : "Neue Notiz"), plainTextToHtml(action.content)),
+            ...createNote(
+              courseId,
+              action.title.trim() || (courseId === null ? "Schnellnotiz" : "Neue Notiz"),
+              html || "<p><br></p>"
+            ),
             tags: Array.isArray(action.tags) ? action.tags.filter(Boolean).slice(0, 10) : []
           };
 
@@ -886,22 +1023,39 @@ export default function App() {
           createdNoteId = note.id;
           selectedCourseId = courseId;
           selectedNoteId = note.id;
+          continue;
         }
 
-        if (action.type === "replace_note") {
-          const noteId = action.noteId || selectedNoteId;
+        if (action.type === "replace_note" || action.type === "replace_note_blocks") {
+          const noteId = resolveNoteId(action.noteId);
           if (!noteId) continue;
-          const html = plainTextToHtml(action.content);
+          const html = action.type === "replace_note_blocks"
+            ? renderAiBlocks(action.blocks)
+            : plainTextToHtml(action.content);
           notes = notes.map(note => note.id === noteId
             ? { ...note, content: html, ...(action.title ? { title: action.title } : {}), updatedAt: new Date().toISOString() }
             : note
           );
           selectedNoteId = noteId;
           changedCurrentNote = noteId === current.selectedNoteId;
+          continue;
+        }
+
+        if (action.type === "append_blocks") {
+          const noteId = resolveNoteId(action.noteId);
+          if (!noteId) continue;
+          const html = renderAiBlocks(action.blocks);
+          notes = notes.map(note => note.id === noteId
+            ? { ...note, content: note.content + html, updatedAt: new Date().toISOString() }
+            : note
+          );
+          selectedNoteId = noteId;
+          changedCurrentNote = noteId === current.selectedNoteId;
+          continue;
         }
 
         if (action.type === "update_note") {
-          const noteId = action.noteId || selectedNoteId;
+          const noteId = resolveNoteId(action.noteId);
           if (!noteId) continue;
           notes = notes.map(note => note.id === noteId
             ? {
@@ -914,14 +1068,98 @@ export default function App() {
           );
           selectedNoteId = noteId;
           changedCurrentNote = noteId === current.selectedNoteId;
+          continue;
         }
+
+        if (action.type === "move_note") {
+          const noteId = resolveNoteId(action.noteId);
+          if (!noteId) continue;
+          const courseId = resolveCourseId(action.courseId);
+          if (courseId === undefined) continue;
+          notes = notes.map(note => note.id === noteId
+            ? { ...note, courseId, updatedAt: new Date().toISOString() }
+            : note
+          );
+          selectedCourseId = courseId;
+          selectedNoteId = noteId;
+          continue;
+        }
+
+        if (action.type === "favorite_note" || action.type === "archive_note") {
+          const noteId = resolveNoteId(action.noteId);
+          if (!noteId) continue;
+          notes = notes.map(note => {
+            if (note.id !== noteId) return note;
+            return action.type === "favorite_note"
+              ? { ...note, favorite: action.favorite, updatedAt: new Date().toISOString() }
+              : { ...note, archived: action.archived, updatedAt: new Date().toISOString() };
+          });
+          continue;
+        }
+
+        if (action.type === "set_grade") {
+          const courseId = resolveCourseId(action.courseId);
+          if (!courseId) continue;
+          const grade = Math.min(6, Math.max(1, action.grade));
+          courses = courses.map(course => {
+            if (course.id !== courseId) return course;
+            const assessments = course.assessments ?? [];
+            const normalizedTitle = action.assessmentTitle?.trim().toLocaleLowerCase("de-CH");
+            let matched = false;
+            const updated = assessments.map(assessment => {
+              const titleMatches = normalizedTitle
+                ? assessment.title.toLocaleLowerCase("de-CH").includes(normalizedTitle) ||
+                  normalizedTitle.includes(assessment.title.toLocaleLowerCase("de-CH"))
+                : false;
+              if (!matched && ((action.assessmentId && assessment.id === action.assessmentId) || titleMatches)) {
+                matched = true;
+                gradeChanged = true;
+                return { ...assessment, grade };
+              }
+              return assessment;
+            });
+            return matched ? { ...course, assessments: updated } : course;
+          });
+          continue;
+        }
+
+        if (action.type === "create_assessment") {
+          const courseId = resolveCourseId(action.courseId);
+          if (!courseId) continue;
+          courses = courses.map(course => {
+            if (course.id !== courseId || !course.isCustom) return course;
+            return {
+              ...course,
+              assessments: [
+                ...(course.assessments ?? []),
+                {
+                  id: createId(),
+                  title: action.title.trim() || "Leistungsnachweis",
+                  topic: action.topic?.trim() || "",
+                  weight: Math.min(100, Math.max(0, action.weight)),
+                  grade: null,
+                  source: "custom"
+                }
+              ]
+            };
+          });
+        }
+      }
+
+      if (selectionEditedHtml && current.selectedNoteId) {
+        notes = notes.map(note => note.id === current.selectedNoteId
+          ? { ...note, content: selectionEditedHtml!, updatedAt: new Date().toISOString() }
+          : note
+        );
+        changedCurrentNote = true;
       }
 
       return { ...current, courses, notes, selectedCourseId, selectedNoteId };
     });
 
-    if (changedCurrentNote) setEditorSyncVersion(value => value + 1);
-    if (createdNoteId) setToast("Notiz wurde von der KI erstellt");
+    if (changedCurrentNote || selectionEditedHtml) setEditorSyncVersion(value => value + 1);
+    if (gradeChanged) setToast("Note wurde von der KI eingetragen");
+    else if (createdNoteId) setToast("KI hat die gewünschten Dokumente erstellt");
     else if (createdCourseId) setToast("ÜK wurde von der KI erstellt");
 
     return result.reply;
@@ -1003,9 +1241,30 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const insertPickedTable = (rows: number, columns: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    if (savedSelectionRef.current) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(savedSelectionRef.current);
+    }
+
+    document.execCommand("insertHTML", false, createEmptyTableHtml(rows, columns));
+    patchNote({ content: editor.innerHTML });
+    setTablePickerOpen(false);
+    setSlashQuery(null);
+    setToast(columns + " × " + rows + " Tabelle eingefügt");
+  };
+
   const runSlashCommand = (command: string) => {
     const editor = editorRef.current;
     if (!editor) return;
+
+    setTableContext(null);
+    setSelectionAi(null);
 
     if (command === "bild") {
       replaceSlashCommand(editor, "");
@@ -1015,14 +1274,24 @@ export default function App() {
       savedSelectionRef.current = currentSelectionRange(editor);
       setEditingFlowchartId(null);
       setFlowchartDraft(createFlowchart());
+    } else if (command === "table") {
+      replaceSlashCommand(editor, "");
+      savedSelectionRef.current = currentSelectionRange(editor);
+      setTablePickerOpen(true);
     } else {
       const replacement = slashReplacement(command);
       if (replacement) {
         replaceSlashCommand(editor, replacement);
+        if (command === "code") {
+          const blocks = editor.querySelectorAll<HTMLElement>("pre.code-block code");
+          const code = blocks[blocks.length - 1];
+          if (code) highlightCodeElement(code);
+        }
         patchNote({ content: editor.innerHTML });
       }
     }
 
+    setSlashIndex(0);
     setSlashQuery(null);
   };
 
@@ -1061,24 +1330,166 @@ export default function App() {
     setToast("Flowchart gespeichert");
   };
 
-  const updateSlashMenu = () => {
-    if (editorRef.current) setSlashQuery(getSlashQuery(editorRef.current));
+  const handleEditorInput = (event: React.FormEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    const code = target.closest("pre.code-block code") as HTMLElement | null;
+
+    if (code) {
+      highlightCodeElement(code);
+      setSlashQuery(null);
+      return;
+    }
+
+    const next = editorRef.current ? getSlashQuery(editorRef.current) : null;
+    setSlashQuery(next);
+    setSlashIndex(0);
   };
 
   const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (slashQuery !== null && event.key === "Escape") {
-      setSlashQuery(null);
+    if (handleCodeTab(event)) return;
+
+    if (tablePickerOpen && event.key === "Escape") {
+      setTablePickerOpen(false);
       event.preventDefault();
       return;
     }
 
+    if (slashQuery !== null && event.key === "Escape") {
+      setSlashQuery(null);
+      setSlashIndex(0);
+      event.preventDefault();
+      return;
+    }
+
+    if (slashQuery !== null && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      event.preventDefault();
+      if (!slashMatches.length) return;
+      setSlashIndex(current => {
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        return (current + delta + slashMatches.length) % slashMatches.length;
+      });
+      return;
+    }
+
     if (slashQuery !== null && event.key === "Enter") {
-      const match = slashCommands.find(command => slashCommandMatches(command, slashQuery));
+      const match = slashMatches[Math.min(slashIndex, Math.max(0, slashMatches.length - 1))];
       if (match) {
         event.preventDefault();
         runSlashCommand(match.query);
       }
     }
+  };
+
+  const handleEditorPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (tableResizeRef.current) return;
+    event.currentTarget.style.cursor = tableResizeCursor(event.target, event.clientX, event.clientY);
+  };
+
+  const handleEditorPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const session = startTableResize(event.target, event.clientX, event.clientY, editor);
+    if (!session) return;
+
+    event.preventDefault();
+    tableResizeRef.current = session;
+    setSelectionAi(null);
+
+    const move = (moveEvent: PointerEvent) => {
+      if (!tableResizeRef.current) return;
+      updateTableResize(tableResizeRef.current, moveEvent.clientX, moveEvent.clientY);
+    };
+
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (tableResizeRef.current && editorRef.current) {
+        patchNote({ content: editorRef.current.innerHTML });
+      }
+      tableResizeRef.current = null;
+      if (editorRef.current) editorRef.current.style.cursor = "";
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
+  };
+
+  const handleEditorClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const context = tableCellContext(event.target);
+    if (!context) {
+      setTableContext(null);
+      return;
+    }
+
+    const rect = context.cell.getBoundingClientRect();
+    setTableContext({
+      table: context.table,
+      rowIndex: context.rowIndex,
+      columnIndex: context.columnIndex,
+      x: Math.min(window.innerWidth - 390, Math.max(12, rect.left)),
+      y: Math.max(12, rect.top - 44)
+    });
+  };
+
+  const updateSelectionAi = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    window.requestAnimationFrame(() => {
+      const range = currentSelectionRange(editor);
+      const text = range?.toString().trim() ?? "";
+      if (!range || range.collapsed || text.length < 2) {
+        setSelectionAi(null);
+        return;
+      }
+
+      const rect = range.getBoundingClientRect();
+      if (!rect.width && !rect.height) return;
+      aiSelectionRangeRef.current = range.cloneRange();
+      setSelectionAi({
+        text: text.slice(0, 6000),
+        x: Math.min(window.innerWidth - 260, Math.max(12, rect.left + rect.width / 2)),
+        y: Math.max(12, rect.top - 46)
+      });
+    });
+  };
+
+  const openAiForSelection = () => {
+    if (!selectionAi) return;
+    setSelectionTextForAi(selectionAi.text);
+    setAiOpen(true);
+    setChatInput("");
+    setSelectionAi(null);
+  };
+
+  const improveSelectionDirectly = async () => {
+    if (!selectionAi || !aiSelectionRangeRef.current || !editorRef.current || aiLoading) return;
+
+    const selectedText = selectionAi.text;
+    setAiLoading(true);
+    setSelectionAi(null);
+
+    try {
+      const improved = await askAi(activeAiConnection, "improve", "<p>" + escapeHtml(selectedText) + "</p>");
+      const editor = editorRef.current;
+      editor.focus();
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(aiSelectionRangeRef.current);
+      document.execCommand("insertText", false, improved);
+      patchNote({ content: editor.innerHTML });
+      setToast("Auswahl wurde von der KI verbessert");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const commitTableChange = () => {
+    if (!editorRef.current) return;
+    patchNote({ content: editorRef.current.innerHTML });
   };
 
   const handleEditorPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
@@ -1275,7 +1686,7 @@ export default function App() {
               <button title="Bild einfügen" onClick={insertImage}><ImagePlus size={16}/></button>
               <button title="Checkliste" onClick={() => {
                 editorRef.current?.focus();
-                document.execCommand("insertHTML", false, "<p>☐ Aufgabe</p><p></p>");
+                document.execCommand("insertHTML", false, '<div class="checklist-block"><p>☐&nbsp;</p></div><p><br></p>');
                 patchNote({ content: editorRef.current?.innerHTML ?? "" });
               }}><ListChecks size={16}/></button>
 
@@ -1288,20 +1699,58 @@ export default function App() {
 
             {slashQuery !== null && (
               <div className="slash-menu">
-                <div className="slash-title">/ Schnellbefehle</div>
-                {slashCommands
-                  .filter(command => slashCommandMatches(command, slashQuery))
-                  .map(command => (
-                    <button
-                      key={command.query}
-                      onMouseDown={event => {
-                        event.preventDefault();
-                        runSlashCommand(command.query);
-                      }}
-                    >
-                      <strong>/{command.query}</strong><span>{command.category} · {command.hint}</span>
-                    </button>
-                  ))}
+                <div className="slash-title">
+                  <span>/ Schnellbefehle</span>
+                  <small>↑↓ wählen · Enter einfügen</small>
+                </div>
+                {slashMatches.map((command, index) => (
+                  <button
+                    key={command.query}
+                    className={index === slashIndex ? "active" : ""}
+                    onMouseEnter={() => setSlashIndex(index)}
+                    onMouseDown={event => {
+                      event.preventDefault();
+                      runSlashCommand(command.query);
+                    }}
+                  >
+                    <strong>/{command.query}</strong><span>{command.category} · {command.hint}</span>
+                  </button>
+                ))}
+                {!slashMatches.length && <div className="slash-empty">Kein passender Block</div>}
+              </div>
+            )}
+
+            {tablePickerOpen && (
+              <TablePicker
+                onSelect={insertPickedTable}
+                onCancel={() => setTablePickerOpen(false)}
+              />
+            )}
+
+            {selectionAi && (
+              <div
+                className="selection-ai-toolbar"
+                style={{ left: selectionAi.x, top: selectionAi.y }}
+                onMouseDown={event => event.preventDefault()}
+              >
+                <button onClick={openAiForSelection}><Sparkles size={14}/> KI fragen</button>
+                <button onClick={() => void improveSelectionDirectly()}>Verbessern</button>
+              </div>
+            )}
+
+            {tableContext && (
+              <div
+                className="table-context-toolbar"
+                style={{ left: tableContext.x, top: tableContext.y }}
+                onMouseDown={event => event.preventDefault()}
+              >
+                <span>Tabelle</span>
+                <button onClick={() => { addTableRow(tableContext.table, tableContext.rowIndex); commitTableChange(); }}>+ Zeile</button>
+                <button onClick={() => { addTableColumn(tableContext.table, tableContext.columnIndex); commitTableChange(); }}>+ Spalte</button>
+                <button onClick={() => { removeTableRow(tableContext.table, tableContext.rowIndex); commitTableChange(); }}>− Zeile</button>
+                <button onClick={() => { removeTableColumn(tableContext.table, tableContext.columnIndex); commitTableChange(); }}>− Spalte</button>
+                <button className="danger" onClick={() => { deleteTable(tableContext.table); setTableContext(null); commitTableChange(); }}>Löschen</button>
+                <small>Kanten ziehen = Grösse ändern</small>
               </div>
             )}
 
@@ -1310,10 +1759,15 @@ export default function App() {
               editorRef={editorRef}
               syncVersion={editorSyncVersion}
               onChange={html => patchNote({ content: html })}
-              onInput={updateSlashMenu}
+              onInput={handleEditorInput}
               onKeyDown={handleEditorKeyDown}
               onPaste={handleEditorPaste}
               onDoubleClick={handleEditorDoubleClick}
+              onPointerMove={handleEditorPointerMove}
+              onPointerDown={handleEditorPointerDown}
+              onClick={handleEditorClick}
+              onMouseUp={updateSelectionAi}
+              onKeyUp={updateSelectionAi}
             />
             <input ref={imageInputRef} className="hidden-input" type="file" accept="image/*" onChange={handleImageSelected}/>
           </section>
@@ -1321,12 +1775,24 @@ export default function App() {
       </main>
 
       {aiOpen && (
-        <div className="drawer-backdrop" onMouseDown={event => event.target === event.currentTarget && setAiOpen(false)}>
+        <div className="drawer-backdrop" onMouseDown={event => {
+          if (event.target !== event.currentTarget) return;
+          setAiOpen(false);
+          setSelectionTextForAi("");
+        }}>
           <aside className="ai-drawer">
             <div className="drawer-header">
               <div><Bot size={20}/><strong>KI-Assistent · {activeAiProvider.shortLabel}</strong></div>
-              <button className="icon-button" onClick={() => setAiOpen(false)}><X size={19}/></button>
+              <button className="icon-button" onClick={() => { setAiOpen(false); setSelectionTextForAi(""); }}><X size={19}/></button>
             </div>
+
+            {selectionTextForAi && (
+              <div className="ai-selection-context">
+                <div><Sparkles size={14}/><strong>Ausgewählter Text</strong></div>
+                <p>{selectionTextForAi.slice(0, 360)}{selectionTextForAi.length > 360 ? "…" : ""}</p>
+                <button onClick={() => setSelectionTextForAi("")}>Auswahl lösen</button>
+              </div>
+            )}
 
             {!activeAiConnection.apiKey.trim() && (
               <div className="ai-missing-key">
@@ -1375,13 +1841,13 @@ export default function App() {
                     void sendAiChat();
                   }
                 }}
-                placeholder="z. B. „Erstelle eine Notiz über USB-C, HDMI und DisplayPort“"
+                placeholder={selectionTextForAi ? "Frag die KI etwas zu deiner Auswahl…" : "z. B. „Erstelle 4 Notizen mit Tabelle und Flowchart für M294“"}
               />
               <button className="primary" onClick={() => void sendAiChat()} disabled={aiLoading || !chatInput.trim()}><Sparkles size={16}/> Senden</button>
             </div>
 
             <div className="ai-chat-hint">
-              Beispiele: „Erstelle einen neuen ÜK“, „Mach eine Notiz über USB-C und HDMI“ oder „Verbessere den Text und ersetze ihn direkt“.
+              Beispiele: „Erstelle M294 mit fünf Lernnotizen“, „Vergleiche REST und GraphQL in einer Tabelle“, „Erstelle einen Flowchart zum Login-Ablauf“ oder markiere Text und frage die KI direkt.
             </div>
           </aside>
         </div>

@@ -1,14 +1,26 @@
 import { invoke } from "@tauri-apps/api/core";
 import { aiProviderDefinition } from "./aiProviders";
 import type { AiProvider } from "./types";
+import { isAiEditorBlock, type AiEditorBlock } from "./aiEditorProtocol";
 
 export type AiAction = "summary" | "explain" | "improve" | "quiz";
 
 export type AiChatAction =
   | { type: "create_course"; number?: string; title: string }
+  | { type: "rename_course"; courseId?: string; number?: string; title?: string }
   | { type: "create_note"; courseId?: string | null; title: string; content: string; tags?: string[] }
+  | { type: "create_rich_note"; courseId?: string | null; title: string; blocks: AiEditorBlock[]; tags?: string[] }
   | { type: "replace_note"; noteId?: string; title?: string; content: string }
-  | { type: "update_note"; noteId?: string; title?: string; content?: string };
+  | { type: "replace_note_blocks"; noteId?: string; title?: string; blocks: AiEditorBlock[] }
+  | { type: "append_blocks"; noteId?: string; blocks: AiEditorBlock[] }
+  | { type: "update_note"; noteId?: string; title?: string; content?: string }
+  | { type: "move_note"; noteId?: string; courseId: string | null }
+  | { type: "favorite_note"; noteId?: string; favorite: boolean }
+  | { type: "archive_note"; noteId?: string; archived: boolean }
+  | { type: "replace_selection"; content: string }
+  | { type: "insert_blocks_at_selection"; blocks: AiEditorBlock[] }
+  | { type: "set_grade"; courseId?: string; assessmentId?: string; assessmentTitle?: string; grade: number }
+  | { type: "create_assessment"; courseId?: string; title: string; topic?: string; weight: number };
 
 export type AiChatResult = {
   reply: string;
@@ -142,15 +154,30 @@ function parseChatJson(raw: string): AiChatResult {
   const safeActions: AiChatAction[] = actions.filter(action => {
     if (!action || typeof action !== "object" || typeof action.type !== "string") return false;
     if (action.type === "create_course") return typeof action.title === "string";
+    if (action.type === "rename_course") return typeof action.title === "string" || typeof action.number === "string";
     if (action.type === "create_note") return typeof action.title === "string" && typeof action.content === "string";
+    if (action.type === "create_rich_note") {
+      return typeof action.title === "string" && Array.isArray(action.blocks) && action.blocks.every(isAiEditorBlock);
+    }
     if (action.type === "replace_note") return typeof action.content === "string";
+    if (action.type === "replace_note_blocks" || action.type === "append_blocks" || action.type === "insert_blocks_at_selection") {
+      return Array.isArray(action.blocks) && action.blocks.every(isAiEditorBlock);
+    }
     if (action.type === "update_note") return typeof action.title === "string" || typeof action.content === "string";
+    if (action.type === "move_note") return action.courseId === null || typeof action.courseId === "string";
+    if (action.type === "favorite_note") return typeof action.favorite === "boolean";
+    if (action.type === "archive_note") return typeof action.archived === "boolean";
+    if (action.type === "replace_selection") return typeof action.content === "string";
+    if (action.type === "set_grade") return typeof action.grade === "number" && Number.isFinite(action.grade);
+    if (action.type === "create_assessment") {
+      return typeof action.title === "string" && typeof action.weight === "number" && Number.isFinite(action.weight);
+    }
     return false;
   }) as AiChatAction[];
 
   return {
     reply: typeof parsed.reply === "string" && parsed.reply.trim() ? parsed.reply.trim() : "Erledigt.",
-    actions: safeActions.slice(0, 8)
+    actions: safeActions.slice(0, 32)
   };
 }
 
@@ -160,41 +187,79 @@ export async function askAiChat(
   context: {
     currentCourse: string;
     currentNote: string;
-    courses: Array<{ id: string; number: string; title: string }>;
+    selectedText?: string;
+    courses: Array<{
+      id: string;
+      number: string;
+      title: string;
+      assessments?: Array<{ id: string; title: string; weight: number; grade: number | null }>;
+    }>;
     notes: Array<{ id: string; courseId: string | null; title: string; content: string }>;
   }
 ): Promise<AiChatResult> {
   const systemPrompt = [
     "Du bist die Steuerzentrale der Desktop-App ÜK Notizen für Schweizer Lernende.",
-    "Du darfst nicht nur antworten: Du kannst über JSON-Aktionen direkt Änderungen in der App ausführen.",
-    "Antworte IMMER mit genau einem JSON-Objekt und sonst nichts. Kein Markdown und kein Codeblock.",
+    "Du arbeitest mit einem TEXTMODELL. Du erzeugst niemals Bilder. Visuelle Inhalte wie Tabellen oder Flowcharts entstehen ausschliesslich über die unten definierten JSON-Befehle und werden von der App lokal gerendert.",
+    "Antworte IMMER mit genau einem JSON-Objekt und sonst nichts. Kein Markdown und kein Codeblock um das JSON.",
     "",
     "Schema:",
     '{ "reply": "kurze Antwort für den Chat", "actions": [] }',
     "",
-    "Erlaubte Aktionen:",
-    '{ "type": "create_course", "number": "ÜK 123", "title": "Titel" }',
-    '{ "type": "create_note", "courseId": "current", "title": "Titel", "content": "Notiztext", "tags": ["tag1"] }',
-    '{ "type": "create_note", "courseId": "newest_created", "title": "Titel", "content": "Notiztext", "tags": [] }',
-    '{ "type": "create_note", "courseId": "quick", "title": "Titel", "content": "Notiztext", "tags": [] }',
-    '{ "type": "replace_note", "noteId": "aktuelle-id", "content": "neuer kompletter Text", "title": "optional" }',
-    '{ "type": "update_note", "noteId": "aktuelle-id", "title": "optional", "content": "optional" }',
+    "Du darfst viele actions in einem einzigen Prompt zurückgeben. Wenn die Person z.B. einen ÜK mit 6 Dokumenten verlangt, erstelle den ÜK und danach 6 create_rich_note-Aktionen. Erledige den Auftrag vollständig statt nur einen Teil vorzubereiten.",
     "",
-    "Für create_course: Wenn die Person keine Nummer nennt, darfst du ÜK als Nummer verwenden und einen passenden Titel wählen.",
-    "Für create_note: Wenn ein aktueller ÜK existiert und kein anderer genannt wird, verwende courseId current.",
-    "Wenn ausdrücklich eine Schnellnotiz, spontane Notiz oder Notiz ohne ÜK verlangt wird, verwende courseId quick.",
-    "Wenn du zuerst einen ÜK erstellst und danach darin eine Notiz erstellst, verwende für die Notiz courseId newest_created.",
-    "Für replace_note muss content immer der komplette Ersatztext sein, nicht nur Änderungen.",
-    "Für create_note, replace_note und update_note: content ist reiner, sauberer Notiztext für den Editor. KEIN Markdown. Keine **Fettschrift**, keine *Kursivschrift*, keine # Überschriften, keine Codeblöcke und keine Markdown-Trennlinien.",
-    "Nutze normale Absätze. Für Stichpunkte verwende Zeilen mit '- '. Für nummerierte Schritte verwende '1. ', '2. ', '3. ' usw.",
-    "Keine Backslashes vor Satzzeichen. Keine Einleitung oder Erklärung ausserhalb des eigentlichen Notiztexts.",
-    "Antworte im Chat kurz. Führe passende Aktionen aus, statt lange zu erklären, was du tun könntest.",
-    "Bei Notizen nur klare, lernfreundliche Inhalte. Keine erfundenen Quellen oder Fakten.",
+    "Kurs-Aktionen:",
+    '{ "type": "create_course", "number": "294", "title": "Frontend einer interaktiven Webapplikation realisieren" }',
+    '{ "type": "rename_course", "courseId": "id oder current", "number": "optional", "title": "optional" }',
+    "",
+    "Notiz-Aktionen:",
+    '{ "type": "create_note", "courseId": "current | newest_created | quick | konkrete-id", "title": "Titel", "content": "reiner Text", "tags": [] }',
+    '{ "type": "create_rich_note", "courseId": "current | newest_created | quick | konkrete-id", "title": "Titel", "blocks": [], "tags": [] }',
+    '{ "type": "replace_note", "noteId": "optional, sonst aktuell", "content": "kompletter reiner Text", "title": "optional" }',
+    '{ "type": "replace_note_blocks", "noteId": "optional", "title": "optional", "blocks": [] }',
+    '{ "type": "append_blocks", "noteId": "optional", "blocks": [] }',
+    '{ "type": "update_note", "noteId": "optional", "title": "optional", "content": "optional" }',
+    '{ "type": "move_note", "noteId": "optional", "courseId": "konkrete-id oder null" }',
+    '{ "type": "favorite_note", "noteId": "optional", "favorite": true }',
+    '{ "type": "archive_note", "noteId": "optional", "archived": true }',
+    "",
+    "Auswahl-Aktionen (nur wenn unten AUSGEWÄHLTER TEXT vorhanden ist):",
+    '{ "type": "replace_selection", "content": "neuer reiner Text" }',
+    '{ "type": "insert_blocks_at_selection", "blocks": [] }',
+    "",
+    "Noten-Aktionen:",
+    '{ "type": "set_grade", "courseId": "optional/current", "assessmentId": "wenn bekannt", "assessmentTitle": "alternativ Titel", "grade": 5.2 }',
+    '{ "type": "create_assessment", "courseId": "optional/current", "title": "Projekt", "topic": "Thema", "weight": 40 }',
+    "create_assessment ist nur für Custom-ÜKs gedacht. Offizielle LBV-Gewichtungen dürfen niemals erfunden oder überschrieben werden.",
+    "",
+    "Rich-Block-Protokoll für blocks:",
+    '{ "type": "paragraph", "text": "Text" }',
+    '{ "type": "heading", "level": 2, "text": "Titel" }',
+    '{ "type": "bullet_list", "items": ["A", "B"] }',
+    '{ "type": "number_list", "items": ["A", "B"] }',
+    '{ "type": "checklist", "items": ["Aufgabe"] }',
+    '{ "type": "quote", "text": "Zitat" }',
+    '{ "type": "info", "text": "Wichtiger Hinweis" }',
+    '{ "type": "code", "language": "javascript", "code": "const x = 1;" }',
+    '{ "type": "table", "header": true, "rows": [["Spalte A","Spalte B"],["Wert","Wert"]] }',
+    '{ "type": "divider" }',
+    '{ "type": "flowchart", "title": "Ablauf", "nodes": [{"key":"start","text":"Start"},{"key":"api","text":"API aufrufen"}], "edges": [{"from":"start","to":"api"}] }',
+    "",
+    "Für strukturierte Lernnotizen bevorzugst du create_rich_note und die Blocktypen. Nutze Tabellen für Vergleiche, Codeblöcke für echten Code und Flowcharts nur für Abläufe/Prozesse.",
+    "Für create_course: Wenn eine offizielle ICT-Modulnummer genannt wird, übernimm sie. Die App reichert den ÜK danach automatisch mit offiziellen Moduldaten an.",
+    "Für create_note/create_rich_note: Wenn ein aktueller ÜK existiert und kein anderer genannt wird, verwende courseId current.",
+    "Wenn ausdrücklich eine Schnellnotiz verlangt wird, verwende courseId quick.",
+    "Wenn du zuerst einen ÜK erstellst und danach Notizen darin erstellst, verwende courseId newest_created.",
+    "Erfinde keine offiziellen Prüfungselemente oder Gewichtungen. Nutze nur die Assessment-Daten im Kontext.",
+    "Wenn die Person mehrere Dokumente verlangt, erstelle mehrere Aktionen in derselben Antwort.",
+    "Wenn die Person nur eine Erklärung fragt, antworte in reply und lasse actions leer.",
+    "Antworte im Chat kurz. Führe passende Aktionen aus, statt lang zu erklären, was du tun könntest.",
+    "Keine erfundenen Quellen oder Fakten.",
     "",
     "Aktueller Kontext:",
     context.currentCourse,
     context.currentNote,
-    "ÜKs:",
+    context.selectedText ? "AUSGEWÄHLTER TEXT:\n" + context.selectedText : "AUSGEWÄHLTER TEXT: keiner",
+    "ÜKs inkl. Leistungsbeurteilungen:",
     JSON.stringify(context.courses),
     "Notizen:",
     JSON.stringify(context.notes),

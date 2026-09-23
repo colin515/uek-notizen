@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ÜK Notizen",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "identifier": "ch.colin.ueknotizen",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -38,7 +38,7 @@
     "createUpdaterArtifacts": false,
     "category": "Education",
     "shortDescription": "ÜK-Notizen lokal organisieren und mit KI verbessern",
-    "longDescription": "Eine einfache, Notion-inspirierte Desktop-App für ÜK-Notizen mit lokaler Speicherung, Suche, DOCX-Export und optionalem Groq-KI-Assistenten.",
+    "longDescription": "Eine einfache, Notion-inspirierte Desktop-App für ÜK-Notizen mit lokaler Speicherung, Suche, DOCX-Export und optionaler KI über GroqCloud, OpenAI oder Google Gemini und einem blockbasierten Editor.",
     "windows": {
       "nsis": {
         "installMode": "currentUser"

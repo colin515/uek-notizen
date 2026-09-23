@@ -222,6 +222,7 @@ export function parseOfficialLbvHtml(
   const totalIndex = lines.findIndex(line => line.toLocaleLowerCase("de-CH") === "richtzeit total");
   const totalDuration = totalIndex >= 0 ? lines[totalIndex + 1] : undefined;
   const description = blockSection(lines, "Beschreibung", ["Lernorte", "Richtzeit total", "Elemente"]);
+  const learningLocations = unique(section(lines, "Lernorte", ["Richtzeit total", "Elemente"]));
 
   const assessments: CourseAssessment[] = elementStarts.map((entry, listIndex) => {
     const end = elementStarts[listIndex + 1]?.index ?? lines.length;
@@ -259,6 +260,7 @@ export function parseOfficialLbvHtml(
     description,
     totalDuration: cleanText(totalDuration),
     sourceUrl: CATALOG_BASE + encodeURIComponent(number) + "/evaluation/" + variant,
+    learningLocations,
     assessments
   };
 }
@@ -303,7 +305,7 @@ export async function fetchOfficialModuleBundle(
   }
 
   const variants = await Promise.all(
-    Array.from({ length: 8 }, (_, index) => index + 1).map(async variant => {
+    Array.from({ length: 12 }, (_, index) => index + 1).map(async variant => {
       try {
         const lbvHtml = await fetchLbvHtml(number, variant);
         return lbvHtml ? parseOfficialLbvHtml(lbvHtml, number, variant) : null;
