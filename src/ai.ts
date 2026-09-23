@@ -17,6 +17,10 @@ export type AiChatAction =
   | { type: "move_note"; noteId?: string; courseId: string | null }
   | { type: "favorite_note"; noteId?: string; favorite: boolean }
   | { type: "archive_note"; noteId?: string; archived: boolean }
+  | { type: "duplicate_note"; noteId?: string; title?: string }
+  | { type: "set_note_tags"; noteId?: string; tags: string[] }
+  | { type: "delete_note"; noteId?: string; confirmed: boolean }
+  | { type: "delete_course"; courseId?: string; confirmed: boolean }
   | { type: "replace_selection"; content: string }
   | { type: "insert_blocks_at_selection"; blocks: AiEditorBlock[] }
   | { type: "set_grade"; courseId?: string; assessmentId?: string; assessmentTitle?: string; grade: number }
@@ -167,6 +171,9 @@ function parseChatJson(raw: string): AiChatResult {
     if (action.type === "move_note") return action.courseId === null || typeof action.courseId === "string";
     if (action.type === "favorite_note") return typeof action.favorite === "boolean";
     if (action.type === "archive_note") return typeof action.archived === "boolean";
+    if (action.type === "duplicate_note") return action.title === undefined || typeof action.title === "string";
+    if (action.type === "set_note_tags") return Array.isArray(action.tags) && action.tags.every(tag => typeof tag === "string");
+    if (action.type === "delete_note" || action.type === "delete_course") return action.confirmed === true;
     if (action.type === "replace_selection") return typeof action.content === "string";
     if (action.type === "set_grade") return typeof action.grade === "number" && Number.isFinite(action.grade);
     if (action.type === "create_assessment") {
@@ -221,6 +228,11 @@ export async function askAiChat(
     '{ "type": "move_note", "noteId": "optional", "courseId": "konkrete-id oder null" }',
     '{ "type": "favorite_note", "noteId": "optional", "favorite": true }',
     '{ "type": "archive_note", "noteId": "optional", "archived": true }',
+    '{ "type": "duplicate_note", "noteId": "optional", "title": "optional" }',
+    '{ "type": "set_note_tags", "noteId": "optional", "tags": ["api","prüfung"] }',
+    '{ "type": "delete_note", "noteId": "optional", "confirmed": true }',
+    '{ "type": "delete_course", "courseId": "optional/current", "confirmed": true }',
+    "delete_note und delete_course NUR verwenden, wenn die Person ausdrücklich Löschen/Entfernen verlangt. Niemals selbständig aufräumen.",
     "",
     "Auswahl-Aktionen (nur wenn unten AUSGEWÄHLTER TEXT vorhanden ist):",
     '{ "type": "replace_selection", "content": "neuer reiner Text" }',
@@ -251,6 +263,8 @@ export async function askAiChat(
     "Wenn du zuerst einen ÜK erstellst und danach Notizen darin erstellst, verwende courseId newest_created.",
     "Erfinde keine offiziellen Prüfungselemente oder Gewichtungen. Nutze nur die Assessment-Daten im Kontext.",
     "Wenn die Person mehrere Dokumente verlangt, erstelle mehrere Aktionen in derselben Antwort.",
+    "Du darfst Notizen duplizieren, verschieben, archivieren, favorisieren, taggen und bei ausdrücklichem Wunsch löschen.",
+    "Du darfst einen ganzen ÜK mit mehreren strukturierten Dokumenten, Tabellen, Codeblöcken und Flowcharts in einer einzigen Antwort erstellen.",
     "Wenn die Person nur eine Erklärung fragt, antworte in reply und lasse actions leer.",
     "Antworte im Chat kurz. Führe passende Aktionen aus, statt lang zu erklären, was du tun könntest.",
     "Keine erfundenen Quellen oder Fakten.",

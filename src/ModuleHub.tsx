@@ -10,14 +10,47 @@ function numberValue(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function localAssessmentWeight(course: Course): number {
+  return Math.min(20, (course.assessments ?? [])
+    .filter(item => item.source === "local")
+    .reduce((sum, item) => sum + Math.max(0, item.weight), 0));
+}
+
+export function effectiveAssessmentWeight(course: Course, assessment: CourseAssessment): number {
+  if (course.isCustom) return Math.max(0, assessment.weight);
+
+  const assessments = course.assessments ?? [];
+  if (assessment.source === "local") {
+    const rawLocalTotal = assessments
+      .filter(item => item.source === "local")
+      .reduce((sum, item) => sum + Math.max(0, item.weight), 0);
+    if (rawLocalTotal <= 0) return 0;
+    const allowedLocalTotal = Math.min(20, rawLocalTotal);
+    return Math.max(0, assessment.weight) / rawLocalTotal * allowedLocalTotal;
+  }
+
+  const officialTotal = assessments
+    .filter(item => item.source === "official" || item.locked)
+    .reduce((sum, item) => sum + Math.max(0, item.weight), 0);
+  if (officialTotal <= 0) return 0;
+
+  const officialShare = 100 - localAssessmentWeight(course);
+  return Math.max(0, assessment.weight) / officialTotal * officialShare;
+}
+
 export function courseGrade(course: Course): { grade: number | null; coverage: number } {
   const assessments = course.assessments ?? [];
-  const graded = assessments.filter(item => item.grade !== null && item.grade !== undefined && item.weight > 0);
+  const graded = assessments.filter(item => item.grade !== null && item.grade !== undefined);
   if (!graded.length) return { grade: null, coverage: 0 };
-  const weight = graded.reduce((sum, item) => sum + item.weight, 0);
-  if (weight <= 0) return { grade: null, coverage: 0 };
-  const weighted = graded.reduce((sum, item) => sum + (item.grade ?? 0) * item.weight, 0);
-  return { grade: weighted / weight, coverage: Math.min(100, weight) };
+
+  const weighted = graded.reduce((sum, item) => {
+    const weight = effectiveAssessmentWeight(course, item);
+    return sum + (item.grade ?? 0) * weight;
+  }, 0);
+  const coveredWeight = graded.reduce((sum, item) => sum + effectiveAssessmentWeight(course, item), 0);
+  if (coveredWeight <= 0) return { grade: null, coverage: 0 };
+
+  return { grade: weighted / coveredWeight, coverage: Math.min(100, coveredWeight) };
 }
 
 export function overallCourseAverage(courses: Course[]): number | null {
@@ -193,7 +226,25 @@ export default function ModuleHub({
       title: "Leistungsbeurteilung " + ((course.assessments?.length ?? 0) + 1),
       topic: "",
       weight: course.assessments?.length ? 0 : 100,
-      grade: null
+      grade: null,
+      source: "custom"
+    };
+    patchCourse(course.id, { assessments: [...(course.assessments ?? []), next] });
+  };
+
+  const addLocalAssessment = (course: Course) => {
+    const used = localAssessmentWeight(course);
+    const remaining = Math.max(0, 20 - used);
+    if (remaining <= 0) return;
+
+    const next: CourseAssessment = {
+      id: crypto.randomUUID(),
+      title: "Lokaler Zusatznachweis",
+      topic: "",
+      weight: remaining,
+      grade: null,
+      source: "local",
+      locked: false
     };
     patchCourse(course.id, { assessments: [...(course.assessments ?? []), next] });
   };
@@ -211,9 +262,17 @@ export default function ModuleHub({
   const selectAssessmentVariant = (course: Course, variantId: string) => {
     const variant = course.assessmentVariants?.find(item => item.id === variantId);
     if (!variant) return;
+
+    const previous = course.assessments ?? [];
+    const local = previous.filter(item => item.source === "local");
+    const official = variant.assessments.map(assessment => {
+      const old = previous.find(item => item.id === assessment.id || item.title === assessment.title);
+      return { ...assessment, grade: old?.grade ?? null };
+    });
+
     patchCourse(course.id, {
       assessmentVariantId: variant.id,
-      assessments: variant.assessments.map(assessment => ({ ...assessment, grade: null }))
+      assessments: [...official, ...local]
     });
   };
 
@@ -326,7 +385,9 @@ export default function ModuleHub({
               <div className="grade-course-list">
                 {data.courses.map(course => {
                   const result = courseGrade(course);
-                  const weightTotal = (course.assessments ?? []).reduce((sum, item) => sum + item.weight, 0);
+                  const weightTotal = (course.assessments ?? []).reduce((sum, item) => sum + effectiveAssessmentWeight(course, item), 0);
+                  const localWeight = localAssessmentWeight(course);
+                  const rawOfficialWeight = (course.assessments ?? []).filter(item => item.source === "official" || item.locked).reduce((sum, item) => sum + item.weight, 0);
                   const activeVariant = course.assessmentVariants?.find(variant => variant.id === course.assessmentVariantId)
                     ?? course.assessmentVariants?.[0];
                   return (
@@ -375,7 +436,7 @@ export default function ModuleHub({
                       )}
 
                       {(course.assessments ?? []).map(assessment => (
-                        <div className={"assessment-row " + (assessment.locked ? "official-assessment" : "")} key={assessment.id}>
+                        <div className={"assessment-row " + (assessment.locked ? "official-assessment" : assessment.source === "local" ? "local-assessment" : "")} key={assessment.id}>
                           <input
                             value={assessment.title}
                             readOnly={assessment.locked}
@@ -397,7 +458,7 @@ export default function ModuleHub({
                               step="1"
                               value={assessment.weight}
                               readOnly={assessment.locked}
-                              onChange={event => !assessment.locked && patchAssessment(course, assessment.id, { weight: Math.max(0, numberValue(event.target.value) ?? 0) })}
+                              onChange={event => !assessment.locked && patchAssessment(course, assessment.id, { weight: Math.min(assessment.source === "local" ? 20 : 100, Math.max(0, numberValue(event.target.value) ?? 0)) })}
                             />
                             <span>%</span>
                           </label>
@@ -435,13 +496,22 @@ export default function ModuleHub({
                       )}
 
                       <footer>
-                        {course.isCustom
-                          ? <button className="secondary" onClick={() => addAssessment(course)}><Plus size={15}/> Test / Projekt hinzufügen</button>
-                          : <span className="official-lbv-badge"><CheckCircle2 size={14}/> Offizielle LBV · nur Noten eintragen</span>}
-                        <span className={Math.abs(weightTotal - 100) < 0.01 ? "weight-ok" : "weight-warning"}>
-                          {Math.abs(weightTotal - 100) < 0.01 ? <CheckCircle2 size={14}/> : <CircleAlert size={14}/>}
-                          {course.isCustom ? "Gewichtung" : "LBV-Gewichtung"}: {weightTotal}%
-                        </span>
+                        <div className="grade-footer-actions">
+                          {course.isCustom
+                            ? <button className="secondary" onClick={() => addAssessment(course)}><Plus size={15}/> Test / Projekt hinzufügen</button>
+                            : <>
+                                <span className="official-lbv-badge"><CheckCircle2 size={14}/> Offizielle LBV bleibt unverändert</span>
+                                {localWeight < 20 && <button className="secondary" onClick={() => addLocalAssessment(course)}><Plus size={15}/> Lokaler Zusatznachweis</button>}
+                              </>}
+                        </div>
+                        <div className="grade-weight-summary">
+                          {!course.isCustom && <small>Offizieller Anteil: {(100 - localWeight).toFixed(0)}%{localWeight > 0 ? " · Lokal: " + localWeight.toFixed(0) + "%" : ""}</small>}
+                          {!course.isCustom && rawOfficialWeight > 0 && Math.abs(rawOfficialWeight - 100) >= 0.01 && <small className="weight-warning">Geladene LBV-Rohgewichtung: {rawOfficialWeight}%</small>}
+                          <span className={Math.abs(weightTotal - 100) < 0.01 ? "weight-ok" : "weight-warning"}>
+                            {Math.abs(weightTotal - 100) < 0.01 ? <CheckCircle2 size={14}/> : <CircleAlert size={14}/>}
+                            Finale Gewichtung: {weightTotal.toFixed(0)}%
+                          </span>
+                        </div>
                       </footer>
                     </article>
                   );

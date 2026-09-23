@@ -10,11 +10,13 @@ import go from "highlight.js/lib/languages/go";
 import java from "highlight.js/lib/languages/java";
 import javascript from "highlight.js/lib/languages/javascript";
 import json from "highlight.js/lib/languages/json";
+import markdown from "highlight.js/lib/languages/markdown";
 import kotlin from "highlight.js/lib/languages/kotlin";
 import php from "highlight.js/lib/languages/php";
 import plaintext from "highlight.js/lib/languages/plaintext";
 import powershell from "highlight.js/lib/languages/powershell";
 import python from "highlight.js/lib/languages/python";
+import ruby from "highlight.js/lib/languages/ruby";
 import rust from "highlight.js/lib/languages/rust";
 import sql from "highlight.js/lib/languages/sql";
 import swift from "highlight.js/lib/languages/swift";
@@ -33,11 +35,13 @@ const LANGUAGE_MAP = {
   java,
   javascript,
   json,
+  markdown,
   kotlin,
   php,
   plaintext,
   powershell,
   python,
+  ruby,
   rust,
   sql,
   swift,
@@ -63,11 +67,13 @@ const LABELS: Record<string, string> = {
   java: "Java",
   javascript: "JavaScript",
   json: "JSON",
+  markdown: "Markdown",
   kotlin: "Kotlin",
   php: "PHP",
   plaintext: "Text",
   powershell: "PowerShell",
   python: "Python",
+  ruby: "Ruby",
   rust: "Rust",
   sql: "SQL",
   swift: "Swift",

@@ -196,3 +196,54 @@ export function deleteTable(table: HTMLTableElement): void {
   table.remove();
   if (next instanceof HTMLElement) next.focus?.();
 }
+
+
+export function moveTableRow(table: HTMLTableElement, rowIndex: number, direction: -1 | 1): number {
+  const rows = Array.from(table.rows);
+  const from = Math.max(0, Math.min(rowIndex, rows.length - 1));
+  const to = from + direction;
+  if (to < 0 || to >= rows.length) return from;
+
+  const row = rows[from];
+  const reference = direction < 0 ? rows[to] : rows[to].nextSibling;
+  row.parentElement?.insertBefore(row, reference);
+  return to;
+}
+
+export function moveTableColumn(table: HTMLTableElement, columnIndex: number, direction: -1 | 1): number {
+  const columns = table.rows[0]?.cells.length ?? 0;
+  const from = Math.max(0, Math.min(columnIndex, columns - 1));
+  const to = from + direction;
+  if (to < 0 || to >= columns) return from;
+
+  Array.from(table.rows).forEach(row => {
+    const cells = Array.from(row.cells);
+    const cell = cells[from];
+    if (!cell) return;
+    const reference = direction < 0 ? cells[to] : cells[to]?.nextSibling;
+    row.insertBefore(cell, reference ?? null);
+  });
+
+  const group = table.querySelector("colgroup");
+  if (group) {
+    const cols = Array.from(group.children);
+    const col = cols[from];
+    if (col) {
+      const reference = direction < 0 ? cols[to] : cols[to]?.nextSibling;
+      group.insertBefore(col, reference ?? null);
+    }
+  }
+
+  return to;
+}
+
+export function distributeTableColumns(table: HTMLTableElement): void {
+  const columns = table.rows[0]?.cells.length ?? 0;
+  if (!columns) return;
+  const cols = ensureColgroup(table);
+  const width = Math.max(MIN_COLUMN_WIDTH, Math.floor(Math.max(560, table.getBoundingClientRect().width || 720) / columns));
+  cols.forEach(col => { col.style.width = width + "px"; });
+  table.style.tableLayout = "fixed";
+  table.style.width = "100%";
+  table.style.maxWidth = "100%";
+}

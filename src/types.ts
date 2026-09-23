@@ -25,7 +25,7 @@ export interface CourseAssessment {
   topic: string;
   weight: number;
   grade: number | null;
-  source?: "official" | "custom";
+  source?: "official" | "custom" | "local";
   locked?: boolean;
   format?: string;
   duration?: string;
