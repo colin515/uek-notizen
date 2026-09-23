@@ -14,4 +14,9 @@ describe("ICT module catalog", () => {
   it("resolves the current module 187 title", () => {
     expect(findIctModule("187")?.title).toContain("ICT-Benutzerendgeräte");
   });
+
+  it("covers building ICT modules", () => {
+    expect(findIctModule("350", "gebaeudeautomation")?.title).toContain("GA-Komponenten");
+    expect(findIctModule("390", "gebaeude-kommunikation")?.title).toContain("Multimedia-Systeme");
+  });
 });
