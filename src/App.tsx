@@ -10,6 +10,7 @@ import { slashCommands, slashCommandMatches, slashReplacement } from "./editorBl
 import FlowchartEditor, { createFlowchart, parseFlowchartElement, renderFlowchartHtml, type FlowchartData } from "./FlowchartEditor";
 import ModuleHub from "./ModuleHub";
 import { ICT_PROFILES, findIctModule, moduleStarterHtml, normalizeModuleNumber, type IctModule } from "./moduleCatalog";
+import { fetchOfficialModuleBundle } from "./officialModuleData";
 import type { AppData, Course, Note } from "./types";
 
 type Filter = "course" | "quick" | "favorites" | "archive";
@@ -304,6 +305,7 @@ export default function App() {
   const [sidebar, setSidebar] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moduleHubOpen, setModuleHubOpen] = useState(false);
+  const [moduleLoading, setModuleLoading] = useState(false);
   const [courseModalOpen, setCourseModalOpen] = useState(false);
   const [courseDraft, setCourseDraft] = useState({ number: "", title: "" });
   const [aiOpen, setAiOpen] = useState(false);
@@ -326,6 +328,7 @@ export default function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+  const moduleEnrichmentRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     saveData(data);
@@ -438,58 +441,126 @@ export default function App() {
     setFilter("quick");
   };
 
-  const addCourse = (numberOverride?: string, titleOverride?: string, catalogOverride?: IctModule): string | null => {
-    const rawNumber = (numberOverride ?? courseDraft.number).trim();
-    const catalogModule = catalogOverride ?? findIctModule(rawNumber, data.settings.educationProfileId);
-    const title = (titleOverride ?? courseDraft.title).trim() || catalogModule?.title || "";
-    if (!title) return null;
+  const officialCoursePatch = (module: IctModule): Partial<Course> => {
+    const variants = module.assessmentVariants ?? [];
+    const firstVariant = variants[0];
+    return {
+      catalogModuleNumber: module.number,
+      moduleField: module.field,
+      moduleTopics: module.topics,
+      moduleSummary: module.summary,
+      moduleCompetence: module.competence,
+      moduleObject: module.object,
+      moduleActionGoals: module.actionGoals ?? [],
+      moduleKnowledge: module.knowledge ?? [],
+      moduleDegrees: module.degrees ?? [],
+      officialSourceUrl: module.sourceUrl,
+      officialDataLoadedAt: new Date().toISOString(),
+      isCustom: false,
+      assessmentVariants: variants,
+      assessmentVariantId: firstVariant?.id,
+      assessments: firstVariant?.assessments.map(assessment => ({ ...assessment, grade: null })) ?? []
+    };
+  };
 
+  const createOfficialCourse = (module: IctModule): string => {
     const course: Course = {
       id: createId(),
-      number: catalogModule ? "M" + catalogModule.number : (rawNumber || "ÜK"),
-      title,
+      number: "M" + module.number,
+      title: module.title,
       createdAt: new Date().toISOString(),
-      ...(catalogModule ? {
-        catalogModuleNumber: catalogModule.number,
-        moduleField: catalogModule.field,
-        moduleTopics: catalogModule.topics,
-        moduleSummary: catalogModule.summary,
-        isCustom: false,
-        assessments: []
-      } : {
-        isCustom: true,
-        assessments: []
-      })
+      ...officialCoursePatch(module)
     };
-    const starterNote = catalogModule
-      ? createNote(course.id, "Modul " + catalogModule.number + " · Überblick", moduleStarterHtml(catalogModule))
-      : null;
+    const starterNote = createNote(
+      course.id,
+      "Modul " + module.number + " · Komplettübersicht",
+      moduleStarterHtml(module)
+    );
 
     setData(current => ({
       ...current,
       courses: [...current.courses, course],
-      notes: starterNote ? [starterNote, ...current.notes] : current.notes,
+      notes: [starterNote, ...current.notes],
       selectedCourseId: course.id,
-      selectedNoteId: starterNote?.id ?? null
+      selectedNoteId: starterNote.id
     }));
-
     setCourseDraft({ number: "", title: "" });
     setCourseModalOpen(false);
     setModuleHubOpen(false);
     setFilter("course");
-    setToast(catalogModule ? "Modul " + catalogModule.number + " erkannt und erstellt" : "Eigener ÜK wurde erstellt");
+    setToast(
+      "Modul " + module.number + " vollständig geladen" +
+      ((module.assessmentVariants?.length ?? 0) ? " · LBV inklusive" : "")
+    );
     return course.id;
   };
 
-  const addCourseFromModule = (module: IctModule) => {
-    const existing = data.courses.find(course => normalizeModuleNumber(course.number) === module.number);
+  const loadAndAddOfficialModule = async (number: string, fallback?: IctModule): Promise<string | null> => {
+    const normalized = normalizeModuleNumber(number);
+    const existing = data.courses.find(course => normalizeModuleNumber(course.number) === normalized);
     if (existing) {
       selectCourse(existing);
+      setCourseModalOpen(false);
       setModuleHubOpen(false);
-      setToast("Modul " + module.number + " ist bereits bei deinen ÜKs");
-      return;
+      setToast("Modul " + normalized + " ist bereits bei deinen ÜKs");
+      return existing.id;
     }
-    addCourse(module.number, module.title, module);
+
+    setModuleLoading(true);
+    try {
+      const official = await fetchOfficialModuleBundle(normalized, fallback);
+      if (!official) {
+        setToast("Offizielle Daten für Modul " + normalized + " konnten nicht geladen werden.");
+        return null;
+      }
+      return createOfficialCourse(official);
+    } catch (error) {
+      setToast("Modulbaukasten konnte nicht geladen werden: " + (error instanceof Error ? error.message : String(error)));
+      return null;
+    } finally {
+      setModuleLoading(false);
+    }
+  };
+
+  const addCourse = async (numberOverride?: string, titleOverride?: string, catalogOverride?: IctModule): Promise<string | null> => {
+    const rawNumber = (numberOverride ?? courseDraft.number).trim();
+    const fallback = catalogOverride ?? findIctModule(rawNumber, data.settings.educationProfileId);
+
+    if (rawNumber) {
+      const officialId = await loadAndAddOfficialModule(rawNumber, fallback);
+      if (officialId) return officialId;
+      if (fallback) return null;
+    }
+
+    const title = (titleOverride ?? courseDraft.title).trim();
+    if (!title) {
+      setToast("Kein offizielles Modul gefunden. Für einen Custom-ÜK bitte einen Titel eingeben.");
+      return null;
+    }
+
+    const course: Course = {
+      id: createId(),
+      number: rawNumber || "Custom",
+      title,
+      createdAt: new Date().toISOString(),
+      isCustom: true,
+      assessments: []
+    };
+    setData(current => ({
+      ...current,
+      courses: [...current.courses, course],
+      selectedCourseId: course.id,
+      selectedNoteId: null
+    }));
+    setCourseDraft({ number: "", title: "" });
+    setCourseModalOpen(false);
+    setFilter("course");
+    setToast("Custom-ÜK wurde erstellt");
+    return course.id;
+  };
+
+  const addCourseFromModule = async (module: IctModule) => {
+    await loadAndAddOfficialModule(module.number, module);
   };
 
   const addTemplateNote = (courseId: string, title: string, html: string) => {
@@ -1282,7 +1353,7 @@ export default function App() {
             )}
             <label className="field">ÜK-Titel<input value={courseDraft.title} onChange={event => setCourseDraft({ ...courseDraft, title: event.target.value })} placeholder="Wird bei ICT-Modulen automatisch ausgefüllt"/></label>
             <button className="secondary full" onClick={() => { setCourseModalOpen(false); setModuleHubOpen(true); }}><GraduationCap size={16}/> Modulbaukasten durchsuchen</button>
-            <button className="primary full" disabled={!courseDraft.title.trim() && !recognizedDraftModule} onClick={() => addCourse()}><Plus size={16}/> {recognizedDraftModule ? "Modul hinzufügen" : "Eigenen ÜK erstellen"}</button>
+            <button className="primary full" onClick={() => void addCourse()} disabled={moduleLoading}><Plus size={16}/> {moduleLoading ? "Offizielle Daten werden geladen…" : courseDraft.number.trim() ? "Komplettes Modul laden" : "Custom-ÜK erstellen"}</button>
           </div>
         </div>
       )}
