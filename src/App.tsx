@@ -846,32 +846,75 @@ export default function App() {
         : "Kein ÜK ausgewählt";
 
     const currentNote = selected
-      ? "Aktuelle Notiz: " + selected.title + "\n" + stripHtml(selected.content).slice(0, 7000)
+      ? "Aktuelle Notiz: " + selected.title + "\n" + stripHtml(selected.content).slice(0, 9000)
       : "Keine Notiz ausgewählt";
 
     const courses = data.courses.map(course => ({
       id: course.id,
       number: course.number,
-      title: course.title
+      title: course.title,
+      assessments: (course.assessments ?? []).map(assessment => ({
+        id: assessment.id,
+        title: assessment.title,
+        weight: assessment.weight,
+        grade: assessment.grade
+      }))
     }));
 
     const notes = data.notes
       .filter(note => !note.archived)
-      .slice(0, 18)
+      .slice(0, 28)
       .map(note => ({
         id: note.id,
         courseId: note.courseId,
         title: note.title,
-        content: stripHtml(note.content).slice(0, 700)
+        content: stripHtml(note.content).slice(0, 900)
       }));
 
-    return { currentCourse, currentNote, courses, notes };
+    return {
+      currentCourse,
+      currentNote,
+      selectedText: selectionTextForAi || selectionAi?.text || undefined,
+      courses,
+      notes
+    };
   };
 
   const applyAiActions = (result: AiChatResult): string => {
     let createdCourseId: string | null = null;
     let createdNoteId: string | null = null;
     let changedCurrentNote = false;
+    let gradeChanged = false;
+    let selectionEditedHtml: string | null = null;
+
+    const selectionActions = result.actions.filter(action =>
+      action.type === "replace_selection" || action.type === "insert_blocks_at_selection"
+    );
+
+    if (selectionActions.length && editorRef.current && aiSelectionRangeRef.current) {
+      const editor = editorRef.current;
+      try {
+        editor.focus();
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(aiSelectionRangeRef.current);
+
+        for (const action of selectionActions) {
+          if (action.type === "replace_selection") {
+            document.execCommand("insertText", false, action.content);
+          } else if (action.type === "insert_blocks_at_selection") {
+            document.execCommand("insertHTML", false, renderAiBlocks(action.blocks));
+          }
+        }
+
+        highlightAllCodeBlocks(editor);
+        selectionEditedHtml = editor.innerHTML;
+        setSelectionAi(null);
+        setSelectionTextForAi("");
+      } catch {
+        selectionEditedHtml = null;
+      }
+    }
 
     setData(current => {
       let courses = [...current.courses];
@@ -879,13 +922,36 @@ export default function App() {
       let selectedCourseId = current.selectedCourseId;
       let selectedNoteId = current.selectedNoteId;
 
+      const resolveCourseId = (value?: string | null): string | null | undefined => {
+        if (value === null || value === "quick") return null;
+        if (!value || value === "current") return selectedCourseId ?? createdCourseId ?? undefined;
+        if (value === "newest_created") return createdCourseId ?? selectedCourseId ?? undefined;
+        return value;
+      };
+
+      const resolveNoteId = (value?: string): string | null =>
+        value || selectedNoteId || current.selectedNoteId;
+
       for (const action of result.actions) {
+        if (action.type === "replace_selection" || action.type === "insert_blocks_at_selection") continue;
+
         if (action.type === "create_course") {
           const rawNumber = action.number ?? "";
           const normalizedNumber = normalizeModuleNumber(rawNumber);
           const hasOfficialNumber = /^\d{2,4}[A-Z]?$/.test(normalizedNumber);
           const catalogModule = findIctModule(normalizedNumber, current.settings.educationProfileId);
           const officialNumber = catalogModule?.number ?? (hasOfficialNumber ? normalizedNumber : "");
+
+          const duplicate = officialNumber
+            ? courses.find(course => normalizeModuleNumber(course.number) === officialNumber)
+            : null;
+
+          if (duplicate) {
+            createdCourseId = duplicate.id;
+            selectedCourseId = duplicate.id;
+            continue;
+          }
+
           const course: Course = {
             id: createId(),
             number: officialNumber ? "M" + officialNumber : (rawNumber.trim() || "ÜK"),
@@ -904,18 +970,37 @@ export default function App() {
           createdCourseId = course.id;
           selectedCourseId = course.id;
           selectedNoteId = null;
+          continue;
         }
 
-        if (action.type === "create_note") {
-          let courseId = action.courseId;
-          if (courseId === "quick") courseId = null;
-          else if (!courseId || courseId === "current") courseId = selectedCourseId ?? undefined;
-          else if (courseId === "newest_created") courseId = createdCourseId ?? selectedCourseId ?? undefined;
-          if (courseId === undefined) courseId = createdCourseId ?? selectedCourseId ?? undefined;
+        if (action.type === "rename_course") {
+          const courseId = resolveCourseId(action.courseId);
+          if (!courseId) continue;
+          courses = courses.map(course => course.id === courseId
+            ? {
+                ...course,
+                ...(action.number?.trim() ? { number: action.number.trim() } : {}),
+                ...(action.title?.trim() ? { title: action.title.trim() } : {})
+              }
+            : course
+          );
+          continue;
+        }
+
+        if (action.type === "create_note" || action.type === "create_rich_note") {
+          const courseId = resolveCourseId(action.courseId);
           if (courseId === undefined) continue;
 
+          const html = action.type === "create_rich_note"
+            ? renderAiBlocks(action.blocks)
+            : plainTextToHtml(action.content);
+
           const note: Note = {
-            ...createNote(courseId, action.title.trim() || (courseId === null ? "Schnellnotiz" : "Neue Notiz"), plainTextToHtml(action.content)),
+            ...createNote(
+              courseId,
+              action.title.trim() || (courseId === null ? "Schnellnotiz" : "Neue Notiz"),
+              html || "<p><br></p>"
+            ),
             tags: Array.isArray(action.tags) ? action.tags.filter(Boolean).slice(0, 10) : []
           };
 
@@ -923,22 +1008,39 @@ export default function App() {
           createdNoteId = note.id;
           selectedCourseId = courseId;
           selectedNoteId = note.id;
+          continue;
         }
 
-        if (action.type === "replace_note") {
-          const noteId = action.noteId || selectedNoteId;
+        if (action.type === "replace_note" || action.type === "replace_note_blocks") {
+          const noteId = resolveNoteId(action.noteId);
           if (!noteId) continue;
-          const html = plainTextToHtml(action.content);
+          const html = action.type === "replace_note_blocks"
+            ? renderAiBlocks(action.blocks)
+            : plainTextToHtml(action.content);
           notes = notes.map(note => note.id === noteId
             ? { ...note, content: html, ...(action.title ? { title: action.title } : {}), updatedAt: new Date().toISOString() }
             : note
           );
           selectedNoteId = noteId;
           changedCurrentNote = noteId === current.selectedNoteId;
+          continue;
+        }
+
+        if (action.type === "append_blocks") {
+          const noteId = resolveNoteId(action.noteId);
+          if (!noteId) continue;
+          const html = renderAiBlocks(action.blocks);
+          notes = notes.map(note => note.id === noteId
+            ? { ...note, content: note.content + html, updatedAt: new Date().toISOString() }
+            : note
+          );
+          selectedNoteId = noteId;
+          changedCurrentNote = noteId === current.selectedNoteId;
+          continue;
         }
 
         if (action.type === "update_note") {
-          const noteId = action.noteId || selectedNoteId;
+          const noteId = resolveNoteId(action.noteId);
           if (!noteId) continue;
           notes = notes.map(note => note.id === noteId
             ? {
@@ -951,14 +1053,98 @@ export default function App() {
           );
           selectedNoteId = noteId;
           changedCurrentNote = noteId === current.selectedNoteId;
+          continue;
         }
+
+        if (action.type === "move_note") {
+          const noteId = resolveNoteId(action.noteId);
+          if (!noteId) continue;
+          const courseId = resolveCourseId(action.courseId);
+          if (courseId === undefined) continue;
+          notes = notes.map(note => note.id === noteId
+            ? { ...note, courseId, updatedAt: new Date().toISOString() }
+            : note
+          );
+          selectedCourseId = courseId;
+          selectedNoteId = noteId;
+          continue;
+        }
+
+        if (action.type === "favorite_note" || action.type === "archive_note") {
+          const noteId = resolveNoteId(action.noteId);
+          if (!noteId) continue;
+          notes = notes.map(note => {
+            if (note.id !== noteId) return note;
+            return action.type === "favorite_note"
+              ? { ...note, favorite: action.favorite, updatedAt: new Date().toISOString() }
+              : { ...note, archived: action.archived, updatedAt: new Date().toISOString() };
+          });
+          continue;
+        }
+
+        if (action.type === "set_grade") {
+          const courseId = resolveCourseId(action.courseId);
+          if (!courseId) continue;
+          const grade = Math.min(6, Math.max(1, action.grade));
+          courses = courses.map(course => {
+            if (course.id !== courseId) return course;
+            const assessments = course.assessments ?? [];
+            const normalizedTitle = action.assessmentTitle?.trim().toLocaleLowerCase("de-CH");
+            let matched = false;
+            const updated = assessments.map(assessment => {
+              const titleMatches = normalizedTitle
+                ? assessment.title.toLocaleLowerCase("de-CH").includes(normalizedTitle) ||
+                  normalizedTitle.includes(assessment.title.toLocaleLowerCase("de-CH"))
+                : false;
+              if (!matched && ((action.assessmentId && assessment.id === action.assessmentId) || titleMatches)) {
+                matched = true;
+                gradeChanged = true;
+                return { ...assessment, grade };
+              }
+              return assessment;
+            });
+            return matched ? { ...course, assessments: updated } : course;
+          });
+          continue;
+        }
+
+        if (action.type === "create_assessment") {
+          const courseId = resolveCourseId(action.courseId);
+          if (!courseId) continue;
+          courses = courses.map(course => {
+            if (course.id !== courseId || !course.isCustom) return course;
+            return {
+              ...course,
+              assessments: [
+                ...(course.assessments ?? []),
+                {
+                  id: createId(),
+                  title: action.title.trim() || "Leistungsnachweis",
+                  topic: action.topic?.trim() || "",
+                  weight: Math.min(100, Math.max(0, action.weight)),
+                  grade: null,
+                  source: "custom"
+                }
+              ]
+            };
+          });
+        }
+      }
+
+      if (selectionEditedHtml && current.selectedNoteId) {
+        notes = notes.map(note => note.id === current.selectedNoteId
+          ? { ...note, content: selectionEditedHtml!, updatedAt: new Date().toISOString() }
+          : note
+        );
+        changedCurrentNote = true;
       }
 
       return { ...current, courses, notes, selectedCourseId, selectedNoteId };
     });
 
-    if (changedCurrentNote) setEditorSyncVersion(value => value + 1);
-    if (createdNoteId) setToast("Notiz wurde von der KI erstellt");
+    if (changedCurrentNote || selectionEditedHtml) setEditorSyncVersion(value => value + 1);
+    if (gradeChanged) setToast("Note wurde von der KI eingetragen");
+    else if (createdNoteId) setToast("KI hat die gewünschten Dokumente erstellt");
     else if (createdCourseId) setToast("ÜK wurde von der KI erstellt");
 
     return result.reply;
