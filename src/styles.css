@@ -305,3 +305,9 @@ button:active{transform:scale(.98)}
   .official-variant-row{align-items:stretch;flex-direction:column}.official-variant-row>span{text-align:left}
   .official-variant-row select{min-width:0;width:100%}
 }
+
+.current-profile-chip{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface)}
+.current-profile-chip>svg{color:var(--accent);flex:0 0 auto}.current-profile-chip>div{display:grid;gap:2px;min-width:0}
+.current-profile-chip small{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800}
+.current-profile-chip strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.custom-title-field>span{font-size:9px;color:var(--muted);font-weight:500}
