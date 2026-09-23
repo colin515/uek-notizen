@@ -4,8 +4,8 @@ import { X } from "lucide-react";
 export default function TablePicker({
   onSelect,
   onCancel,
-  maxRows = 8,
-  maxColumns = 8
+  maxRows = 10,
+  maxColumns = 10
 }: {
   onSelect: (rows: number, columns: number) => void;
   onCancel: () => void;
@@ -64,7 +64,7 @@ export default function TablePicker({
           );
         })}
       </div>
-      <small>Über die Felder ziehen oder klicken · danach kannst du Zeilen und Spalten direkt an ihren Kanten verschieben.</small>
+      <small>Wie in Word: über das Raster ziehen oder klicken. Danach kannst du Kanten ziehen und Zeilen/Spalten verschieben.</small>
     </div>
   );
 }
